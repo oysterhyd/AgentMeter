@@ -111,9 +111,23 @@ func (a *App) verifyNativeWidget() {
 		if h.window.renderFailure() != nil {
 			a.errorText = h.window.renderFailure().Error()
 		}
+	})
+	// Wait past the cache grace period, then drive a real cold restore.
+	a.updateWait(func() { a.widget.activate("hide") })
+	time.Sleep(2200 * time.Millisecond)
+	a.updateWait(func() {
+		h := a.widget
+		checks["idleBuffersReleased"] = h.painter.frame == nil && h.painter.card == nil && h.window.pixelsReleased()
+		h.show()
+	})
+	time.Sleep(400 * time.Millisecond)
+	capture("cold")
+	a.updateWait(func() {
+		h := a.widget
+		checks["coldRestored"] = h.painter.frame != nil && h.painter.card != nil && !h.window.pixelsReleased() && h.window.renderFailure() == nil && a.widgetVerified
 		b, _ := json.Marshal(checks)
 		_ = os.WriteFile(filepath.Join(a.options.Capture, "widget-result.json"), b, 0600)
-		for _, key := range []string{"layered", "fixedSize", "rendered", "perPixelAlpha", "noBrowserChildren", "orbHit", "transparentHit", "keyboardExpand", "expiredUnknown", "errorVisible", "reducedMotion", "retryRecovered", "topmostToggle", "hidePersisted", "dragWorked"} {
+		for _, key := range []string{"layered", "fixedSize", "rendered", "perPixelAlpha", "noBrowserChildren", "orbHit", "transparentHit", "keyboardExpand", "expiredUnknown", "errorVisible", "reducedMotion", "retryRecovered", "topmostToggle", "hidePersisted", "dragWorked", "idleBuffersReleased", "coldRestored"} {
 			if !truth(checks[key]) {
 				a.errorText = "原生小窗口验收失败：" + key
 			}

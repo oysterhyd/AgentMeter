@@ -259,6 +259,7 @@ func (w *widgetWindow) hide() {
 		windows.NewLazySystemDLL("winmm.dll").NewProc("timeEndPeriod").Call(1)
 		w.highResolution = false
 	}
+	w.host.releaseWhenHidden()
 }
 func (w *widgetWindow) taskbar(show bool) {
 	style, _, _ := wGetLong.Call(w.hwnd, widgetSigned(-20))
@@ -306,18 +307,23 @@ func (w *widgetWindow) anchor() {
 	w.place(x, y)
 	w.host.persist()
 }
+func (w *widgetWindow) releasePixels() {
+	if w.dc != 0 {
+		wSelect.Call(w.dc, w.oldBitmap)
+		wDelete.Call(w.bitmap)
+		wDeleteDC.Call(w.dc)
+	}
+	w.dc, w.bitmap, w.oldBitmap, w.pixels = 0, 0, 0, nil
+	w.pixelWidth, w.pixelHeight, w.frame = 0, 0, nil
+}
+func (w *widgetWindow) pixelsReleased() bool { return w.dc == 0 && w.frame == nil }
 func (w *widgetWindow) close() {
 	w.hide()
 	if w.tooltip != 0 {
 		wDestroy.Call(w.tooltip)
 		w.tooltip = 0
 	}
-	if w.dc != 0 {
-		wSelect.Call(w.dc, w.oldBitmap)
-		wDelete.Call(w.bitmap)
-		wDeleteDC.Call(w.dc)
-		w.dc = 0
-	}
+	w.releasePixels()
 	delete(widgetWindows, w.hwnd)
 	wDestroy.Call(w.hwnd)
 	w.hwnd = 0

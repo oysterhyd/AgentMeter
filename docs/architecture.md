@@ -74,6 +74,8 @@ Win32 `UpdateLayeredWindow` 接收 Go 渲染的预乘 BGRA 位图。透明区域
 
 ## 构建与验收
 
+2.8.3 的背景直接生成与原 SVG 相同的径向渐变像素，只保留当前尺寸；品牌图标按屏幕 DPI 去掉不会采样的原始层。小窗口收缩后释放卡片图层，形态动画结束后释放模糊区，隐藏两秒后释放离屏绘制器和本机 DIB；模型与位置状态保留，快速切换取消延迟释放。GUI 的默认 GC 为 50%，Go 软预算按窗口像素数提供至少 80 MiB，显式环境设置优先，CLI 不设置此策略。回收空闲图像页在 GUI 线程外执行。真实 Windows 私有字节 / 私有工作集测量与冷恢复成本见 [GUI 内存报告](gui-memory.md)。
+
 `go run .` 可从源码运行，`go test ./...` 执行测试。npm 脚本只使用 Node 标准库，不需要安装 npm 依赖。`npm run build` 生成 `build/native/Codex Monitor Native.exe` 并复制 `icon.ico`，构建目录只有这两个文件；所有绘制资源已嵌入可执行文件。
 
 `npm run package` 使用 NSIS / LZMA 打包完整应用，生成安装包和 SHA-256 校验文件。安装按当前用户进行，并创建快捷方式与 Windows 卸载记录；必须从托盘退出运行中的应用后才能更新。升级会按已知清单清理旧主程序和旧小窗口的 Electron 文件，保留用户额外添加的文件和全部数据。清单位于 `scripts/legacy-app-files.nsh`、`scripts/legacy-widget-files.nsh`，只是升级清理规则，不包含旧实现。

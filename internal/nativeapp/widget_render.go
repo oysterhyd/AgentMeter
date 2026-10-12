@@ -45,6 +45,17 @@ func newWidgetPainter(model *widgetModel, brand *ui.Bitmap) *widgetPainter {
 }
 func (p *widgetPainter) invalidate()            { p.dirty = true; p.model.dirty = true }
 func (p *widgetPainter) invalidateInteraction() { p.interactionDirty = true; p.model.dirty = true }
+func (p *widgetPainter) releaseCard() {
+	p.card, p.cardImage, p.cardBitmap, p.filteredCard = nil, nil, nil, nil
+	p.metricLayers = [4]*ui.Tester{}
+	p.metricBitmaps = [4]*ui.Bitmap{}
+	p.metricState = [4]widgetMetricPaint{}
+	p.blur = widgetBlurWorkspace{}
+}
+func (p *widgetPainter) release() {
+	*p = widgetPainter{model: p.model, brand: p.brand, dirty: true}
+	p.model.dirty = true
+}
 func widgetTheme(c *ui.Context) {
 	t := ui.LightTheme()
 	t.Background = ui.Transparent
@@ -65,10 +76,8 @@ func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {
 	m := p.model
 	m.clock = now
 	if p.scale != scale {
-		p.card, p.orb, p.frame = nil, nil, nil
-		p.metricLayers = [4]*ui.Tester{}
+		p.release()
 		p.scale = scale
-		p.dirty = true
 	}
 	for i, metric := range m.metrics(now) {
 		target := float32(min(100., max(0., number(metric.Value))))
@@ -81,16 +90,26 @@ func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {
 			p.dirty = true
 		}
 	}
-	if p.card == nil {
+	needCard, needOrb := !m.Collapsed || m.morphing(now), m.Collapsed || m.morphing(now)
+	if !needCard {
+		p.releaseCard()
+	}
+	if needCard && p.card == nil {
 		p.card = ui.NewTester(p.cardView, 536, 356)
 		p.card.SetScale(scale)
+		p.dirty = true
+	}
+	if needOrb && p.orb == nil {
 		p.orb = ui.NewTester(p.orbView, 120, 120)
 		p.orb.SetScale(scale)
 		p.dirty = true
 	}
 	changed := p.dirty || p.interactionDirty
-	cardChanged := changed || m.Busy && !m.ReduceMotion
+	cardChanged := needCard && (changed || m.Busy && !m.ReduceMotion)
 	for i := 0; i < 4; i++ {
+		if !needCard {
+			break
+		}
 		state := widgetMetricPaint{bar: m.bars[i].value(now), hover: m.hoverMotion[i].value(now), light: m.light[i]}
 		if p.dirty || state != p.metricState[i] {
 			if p.metricLayers[i] == nil {
@@ -115,13 +134,16 @@ func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {
 		p.cardImage = p.card.Image()
 		p.cardBitmap = ui.NewBitmap(p.cardImage)
 	}
-	orbChanged := changed || m.hoverMotion[4].active(now)
+	orbChanged := needOrb && (changed || m.hoverMotion[4].active(now))
 	if orbChanged {
 		p.orb.Frame()
 		p.orbBitmap = ui.NewBitmap(p.orb.Image())
 	}
 	p.dirty = false
 	p.interactionDirty = false
+	if !m.morphing(now) {
+		p.blur = widgetBlurWorkspace{}
+	}
 	shape := m.shape.value(now)
 	if p.frame != nil && !changed && !cardChanged && !orbChanged && shape == p.lastShape && !m.morphing(now) {
 		return p.frameImage

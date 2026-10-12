@@ -19,6 +19,7 @@ type widgetHost struct {
 	closed, fetching, pending, manual bool
 	wasAnimating                      bool
 	lastPoll                          time.Time
+	hiddenGeneration                  uint64
 	measurement                       *switchMeasurement
 	staged                            *widgetResult
 }
@@ -44,6 +45,7 @@ func (h *widgetHost) persist() {
 	_ = os.WriteFile(filepath.Join(h.app.options.Data, "widget-window.json"), b, 0600)
 }
 func (h *widgetHost) show() bool {
+	h.hiddenGeneration++
 	started := time.Now()
 	h.model.setVisible(true, time.Now())
 	h.saved.Mode = true
@@ -85,6 +87,31 @@ func (h *widgetHost) close() {
 	h.closed = true
 	h.cancel()
 	h.window.close()
+	h.painter.release()
+}
+
+// Preserve buffers for rapid reversals, then let an unused widget's complete
+// scene and native DIB go. Data, placement, focus and animation state live in
+// the model, so showing it again rebuilds the same pixels.
+func (h *widgetHost) releaseWhenHidden() {
+	if h.closed {
+		return
+	}
+	h.hiddenGeneration++
+	generation := h.hiddenGeneration
+	time.AfterFunc(2*time.Second, func() {
+		if h.window.context().Err() != nil {
+			return
+		}
+		h.app.win.Update(func() {
+			if h.closed || h.model.Visible || generation != h.hiddenGeneration {
+				return
+			}
+			h.painter.release()
+			h.window.releasePixels()
+			reclaimGUIMemory()
+		})
+	})
 }
 func (h *widgetHost) update() { h.request(false) }
 func (h *widgetHost) request(manual bool) {

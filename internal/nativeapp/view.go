@@ -9,7 +9,7 @@ import (
 )
 
 func (a *App) View(c *ui.Context) {
-	skin(c)
+	a.skin(c)
 	t := c.Theme()
 	a.reduceMotion = c.Preferences().ReduceMotion
 	a.lastRenderedPage = a.page

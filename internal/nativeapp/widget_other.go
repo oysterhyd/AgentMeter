@@ -19,6 +19,8 @@ func (*widgetWindow) wake()                    {}
 func (*widgetWindow) show()                    {}
 func (*widgetWindow) hide()                    {}
 func (*widgetWindow) close()                   {}
+func (*widgetWindow) releasePixels()           {}
+func (*widgetWindow) pixelsReleased() bool     { return true }
 func (*widgetWindow) topmost(bool)             {}
 func (*widgetWindow) anchor()                  {}
 func (*widgetWindow) present(*image.RGBA)      {}

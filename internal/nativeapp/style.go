@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func skin(c *ui.Context) {
+func (a *App) skin(c *ui.Context) {
 	t := ui.LightTheme()
 	if c.Theme().Dark {
 		t = ui.DarkTheme()
@@ -35,7 +35,13 @@ func skin(c *ui.Context) {
 	}
 	t.Focus = t.Accent
 	c.SetTheme(t)
-	c.Root().Draw(func(p *ui.Painter, r ui.Rect) { p.Image(backgrounds[t.Dark], r, ui.FillBox) })
+	c.Root().Draw(func(p *ui.Painter, r ui.Rect) {
+		// A display connected after startup may need a larger source level.
+		if a.prepareBrand(p.Scale()) {
+			c.Invalidate()
+		}
+		a.background.draw(p, r, t.Dark)
+	})
 }
 func edge(c *ui.Context) ui.Color {
 	if c.Theme().Dark {

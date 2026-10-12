@@ -1,0 +1,2042 @@
+{
+  "baseline": {
+    "version": "2.8.2",
+    "commit": "04f20703979b0e65837c4a5b5f6adaf4caff357b",
+    "changes": "Only shared --smoke-memory helper and entry, no product optimization or memory policy."
+  },
+  "candidate": {
+    "version": "2.8.3",
+    "gcPercent": 50,
+    "minimumGoMemoryBudgetBytes": 83886080,
+    "gpu": "unchanged"
+  },
+  "scenario": "20000 calls; real native overview, five pages, calls, card, orb, tray and restore; four seconds per state; no screenshots or diagnostic forced GC.",
+  "stageNotes": {
+    "cold-card": "Widget reopened after idle release; the model is still collapsed, so this measures the orb. A real cold expanded card is separately verified in native acceptance."
+  },
+  "method": "Windows process counters every 100 ms; three alternating rounds; state sample median over its last 2 seconds, then median across runs. Same executable basename and production link flags. No screenshots or diagnostic forced GC; product idle reclamation remains enabled.",
+  "environment": {
+    "os": "Windows amd64",
+    "cpu": "AMD Ryzen 7 8845H",
+    "go": "1.27.1",
+    "mygo": "0.2.15",
+    "logicalProcessors": 16
+  },
+  "peaks": {
+    "sampledPeakPrivateBytes": {
+      "before": {
+        "samples": [
+          267026432,
+          266477568,
+          263696384
+        ],
+        "median": 266477568,
+        "min": 263696384,
+        "max": 267026432
+      },
+      "after": {
+        "samples": [
+          210493440,
+          210984960,
+          209014784
+        ],
+        "median": 210493440,
+        "min": 209014784,
+        "max": 210984960
+      },
+      "changePercent": -21.008945863690865
+    },
+    "sampledPeakPrivateWorkingSetBytes": {
+      "before": {
+        "samples": [
+          232873984,
+          199643136,
+          195739648
+        ],
+        "median": 199643136,
+        "min": 195739648,
+        "max": 232873984
+      },
+      "after": {
+        "samples": [
+          179666944,
+          144109568,
+          142323712
+        ],
+        "median": 144109568,
+        "min": 142323712,
+        "max": 179666944
+      },
+      "changePercent": -27.816417389877103
+    },
+    "peakWorkingSetBytes": {
+      "before": {
+        "samples": [
+          290054144,
+          247189504,
+          243425280
+        ],
+        "median": 247189504,
+        "min": 243425280,
+        "max": 290054144
+      },
+      "after": {
+        "samples": [
+          236130304,
+          191107072,
+          190513152
+        ],
+        "median": 191107072,
+        "min": 190513152,
+        "max": 236130304
+      },
+      "changePercent": -22.688031284694034
+    },
+    "cpuMs": {
+      "before": {
+        "samples": [
+          2390.625,
+          2500,
+          2468.75
+        ],
+        "median": 2468.75,
+        "min": 2390.625,
+        "max": 2500
+      },
+      "after": {
+        "samples": [
+          2296.875,
+          2250,
+          2734.375
+        ],
+        "median": 2296.875,
+        "min": 2250,
+        "max": 2734.375
+      },
+      "changePercent": -6.9620253164556996
+    },
+    "durationMs": {
+      "before": {
+        "samples": [
+          33732,
+          33623,
+          33551
+        ],
+        "median": 33623,
+        "min": 33551,
+        "max": 33732
+      },
+      "after": {
+        "samples": [
+          33498,
+          33397,
+          33509
+        ],
+        "median": 33498,
+        "min": 33397,
+        "max": 33509
+      },
+      "changePercent": -0.3717693245694931
+    }
+  },
+  "stages": {
+    "calls": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            209207296,
+            207867904,
+            211218432
+          ],
+          "median": 209207296,
+          "min": 207867904,
+          "max": 211218432
+        },
+        "after": {
+          "samples": [
+            164753408,
+            165470208,
+            164278272
+          ],
+          "median": 164753408,
+          "min": 164278272,
+          "max": 165470208
+        },
+        "changePercent": -21.248727386639523
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            175792128,
+            141135872,
+            143323136
+          ],
+          "median": 143323136,
+          "min": 141135872,
+          "max": 175792128
+        },
+        "after": {
+          "samples": [
+            133795840,
+            98758656,
+            98566144
+          ],
+          "median": 98758656,
+          "min": 98566144,
+          "max": 133795840
+        },
+        "changePercent": -31.093709811094282
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            229588992,
+            184713216,
+            186888192
+          ],
+          "median": 186888192,
+          "min": 184713216,
+          "max": 229588992
+        },
+        "after": {
+          "samples": [
+            187604992,
+            142647296,
+            142540800
+          ],
+          "median": 142647296,
+          "min": 142540800,
+          "max": 187604992
+        },
+        "changePercent": -23.672386963859115
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            27814968,
+            28582768,
+            25562864
+          ],
+          "median": 27814968,
+          "min": 25562864,
+          "max": 28582768
+        },
+        "after": {
+          "samples": [
+            23008928,
+            21170032,
+            22980544
+          ],
+          "median": 22980544,
+          "min": 21170032,
+          "max": 23008928
+        },
+        "changePercent": -17.380656343016465
+      }
+    },
+    "card": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            213852160,
+            210173952,
+            213581824
+          ],
+          "median": 213581824,
+          "min": 210173952,
+          "max": 213852160
+        },
+        "after": {
+          "samples": [
+            190742528,
+            189489152,
+            188231680
+          ],
+          "median": 189489152,
+          "min": 188231680,
+          "max": 190742528
+        },
+        "changePercent": -11.280300705737956
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            179855360,
+            143421440,
+            145661952
+          ],
+          "median": 145661952,
+          "min": 143421440,
+          "max": 179855360
+        },
+        "after": {
+          "samples": [
+            159973376,
+            122781696,
+            122421248
+          ],
+          "median": 122781696,
+          "min": 122421248,
+          "max": 159973376
+        },
+        "changePercent": -15.707777965243796
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            236167168,
+            189853696,
+            192143360
+          ],
+          "median": 192143360,
+          "min": 189853696,
+          "max": 236167168
+        },
+        "after": {
+          "samples": [
+            216285184,
+            169496576,
+            169193472
+          ],
+          "median": 169496576,
+          "min": 169193472,
+          "max": 216285184
+        },
+        "changePercent": -11.786399488382004
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            55839280,
+            55798744,
+            54927384
+          ],
+          "median": 55798744,
+          "min": 54927384,
+          "max": 55839280
+        },
+        "after": {
+          "samples": [
+            39837952,
+            50002248,
+            43476920
+          ],
+          "median": 43476920,
+          "min": 39837952,
+          "max": 50002248
+        },
+        "changePercent": -22.08261892059793
+      }
+    },
+    "cold-card": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            267026432,
+            238481408,
+            263688192
+          ],
+          "median": 263688192,
+          "min": 238481408,
+          "max": 267026432
+        },
+        "after": {
+          "samples": [
+            169037824,
+            169951232,
+            168222720
+          ],
+          "median": 169037824,
+          "min": 168222720,
+          "max": 169951232
+        },
+        "changePercent": -35.89480715162247
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            232873984,
+            171622400,
+            195731456
+          ],
+          "median": 195731456,
+          "min": 171622400,
+          "max": 232873984
+        },
+        "after": {
+          "samples": [
+            137822208,
+            102875136,
+            102457344
+          ],
+          "median": 102875136,
+          "min": 102457344,
+          "max": 137822208
+        },
+        "changePercent": -47.440673000460386
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            289189888,
+            218099712,
+            242233344
+          ],
+          "median": 242233344,
+          "min": 218099712,
+          "max": 289189888
+        },
+        "after": {
+          "samples": [
+            194158592,
+            149684224,
+            149340160
+          ],
+          "median": 149684224,
+          "min": 149340160,
+          "max": 194158592
+        },
+        "changePercent": -38.206598014846385
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            48913952,
+            52711072,
+            49290456
+          ],
+          "median": 49290456,
+          "min": 48913952,
+          "max": 52711072
+        },
+        "after": {
+          "samples": [
+            28634864,
+            28738648,
+            28637728
+          ],
+          "median": 28637728,
+          "min": 28634864,
+          "max": 28738648
+        },
+        "changePercent": -41.900054647496056
+      }
+    },
+    "orb": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            261505024,
+            253796352,
+            258576384
+          ],
+          "median": 258576384,
+          "min": 253796352,
+          "max": 261505024
+        },
+        "after": {
+          "samples": [
+            188166144,
+            209993728,
+            201412608
+          ],
+          "median": 201412608,
+          "min": 188166144,
+          "max": 209993728
+        },
+        "changePercent": -22.107114004657134
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            227667968,
+            187203584,
+            190787584
+          ],
+          "median": 190787584,
+          "min": 187203584,
+          "max": 227667968
+        },
+        "after": {
+          "samples": [
+            157401088,
+            143151104,
+            135811072
+          ],
+          "median": 143151104,
+          "min": 135811072,
+          "max": 157401088
+        },
+        "changePercent": -24.968333369114838
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            283979776,
+            233656320,
+            237277184
+          ],
+          "median": 237277184,
+          "min": 233656320,
+          "max": 283979776
+        },
+        "after": {
+          "samples": [
+            213721088,
+            189906944,
+            182624256
+          ],
+          "median": 189906944,
+          "min": 182624256,
+          "max": 213721088
+        },
+        "changePercent": -19.964093977109908
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            74754776,
+            72429712,
+            73753560
+          ],
+          "median": 73753560,
+          "min": 72429712,
+          "max": 74754776
+        },
+        "after": {
+          "samples": [
+            30073520,
+            64194736,
+            42745704
+          ],
+          "median": 42745704,
+          "min": 30073520,
+          "max": 64194736
+        },
+        "changePercent": -42.042521066101756
+      }
+    },
+    "overview": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            201875456,
+            201052160,
+            202199040
+          ],
+          "median": 201875456,
+          "min": 201052160,
+          "max": 202199040
+        },
+        "after": {
+          "samples": [
+            162140160,
+            162607104,
+            159981568
+          ],
+          "median": 162140160,
+          "min": 159981568,
+          "max": 162607104
+        },
+        "changePercent": -19.683074301018543
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            163745792,
+            130048000,
+            130199552
+          ],
+          "median": 130199552,
+          "min": 130048000,
+          "max": 163745792
+        },
+        "after": {
+          "samples": [
+            127692800,
+            92741632,
+            91549696
+          ],
+          "median": 92741632,
+          "min": 91549696,
+          "max": 127692800
+        },
+        "changePercent": -28.769622801774307
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            217296896,
+            172994560,
+            173187072
+          ],
+          "median": 173187072,
+          "min": 172994560,
+          "max": 217296896
+        },
+        "after": {
+          "samples": [
+            181256192,
+            135917568,
+            134840320
+          ],
+          "median": 135917568,
+          "min": 134840320,
+          "max": 181256192
+        },
+        "changePercent": -21.519795657726693
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            66161936,
+            66666568,
+            66690912
+          ],
+          "median": 66666568,
+          "min": 66161936,
+          "max": 66690912
+        },
+        "after": {
+          "samples": [
+            19341312,
+            19798896,
+            20327488
+          ],
+          "median": 19798896,
+          "min": 19341312,
+          "max": 20327488
+        },
+        "changePercent": -70.30161204638583
+      }
+    },
+    "pages": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            215531520,
+            214368256,
+            215683072
+          ],
+          "median": 215531520,
+          "min": 214368256,
+          "max": 215683072
+        },
+        "after": {
+          "samples": [
+            162205696,
+            163119104,
+            161218560
+          ],
+          "median": 162205696,
+          "min": 161218560,
+          "max": 163119104
+        },
+        "changePercent": -24.741543139490684
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            180027392,
+            145895424,
+            146161664
+          ],
+          "median": 146161664,
+          "min": 145895424,
+          "max": 180027392
+        },
+        "after": {
+          "samples": [
+            131584000,
+            96518144,
+            95854592
+          ],
+          "median": 96518144,
+          "min": 95854592,
+          "max": 131584000
+        },
+        "changePercent": -33.96480215222508
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            233803776,
+            189300736,
+            189554688
+          ],
+          "median": 189554688,
+          "min": 189300736,
+          "max": 233803776
+        },
+        "after": {
+          "samples": [
+            185372672,
+            140136448,
+            139620352
+          ],
+          "median": 140136448,
+          "min": 139620352,
+          "max": 185372672
+        },
+        "changePercent": -26.07070314188167
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            43128024,
+            43039832,
+            40263176
+          ],
+          "median": 43039832,
+          "min": 40263176,
+          "max": 43128024
+        },
+        "after": {
+          "samples": [
+            20148656,
+            21239248,
+            23441768
+          ],
+          "median": 21239248,
+          "min": 20148656,
+          "max": 23441768
+        },
+        "changePercent": -50.65211221084692
+      }
+    },
+    "restored": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            264749056,
+            265543680,
+            261664768
+          ],
+          "median": 264749056,
+          "min": 261664768,
+          "max": 265543680
+        },
+        "after": {
+          "samples": [
+            157278208,
+            158322688,
+            156262400
+          ],
+          "median": 157278208,
+          "min": 156262400,
+          "max": 158322688
+        },
+        "changePercent": -40.59347731914104
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            231010304,
+            198619136,
+            193835008
+          ],
+          "median": 198619136,
+          "min": 193835008,
+          "max": 231010304
+        },
+        "after": {
+          "samples": [
+            126406656,
+            91635712,
+            90804224
+          ],
+          "median": 91635712,
+          "min": 90804224,
+          "max": 126406656
+        },
+        "changePercent": -53.86360355529892
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            287322112,
+            245084160,
+            240328704
+          ],
+          "median": 245084160,
+          "min": 240328704,
+          "max": 287322112
+        },
+        "after": {
+          "samples": [
+            182730752,
+            138424320,
+            137670656
+          ],
+          "median": 138424320,
+          "min": 137670656,
+          "max": 182730752
+        },
+        "changePercent": -43.51967911757333
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            95861496,
+            93640024,
+            94964056
+          ],
+          "median": 94964056,
+          "min": 93640024,
+          "max": 95861496
+        },
+        "after": {
+          "samples": [
+            19131256,
+            19127088,
+            19127640
+          ],
+          "median": 19127640,
+          "min": 19127088,
+          "max": 19131256
+        },
+        "changePercent": -79.85802122857936
+      }
+    },
+    "tray": {
+      "medianPrivateBytes": {
+        "before": {
+          "samples": [
+            261505024,
+            253796352,
+            258576384
+          ],
+          "median": 258576384,
+          "min": 253796352,
+          "max": 261505024
+        },
+        "after": {
+          "samples": [
+            156655616,
+            157523968,
+            156213248
+          ],
+          "median": 156655616,
+          "min": 156213248,
+          "max": 157523968
+        },
+        "changePercent": -39.41611620649781
+      },
+      "medianPrivateWorkingSetBytes": {
+        "before": {
+          "samples": [
+            227667968,
+            187203584,
+            190787584
+          ],
+          "median": 190787584,
+          "min": 187203584,
+          "max": 227667968
+        },
+        "after": {
+          "samples": [
+            125968384,
+            90796032,
+            90714112
+          ],
+          "median": 90796032,
+          "min": 90714112,
+          "max": 125968384
+        },
+        "changePercent": -52.40988428261664
+      },
+      "medianWorkingSetBytes": {
+        "before": {
+          "samples": [
+            283979776,
+            233656320,
+            237277184
+          ],
+          "median": 237277184,
+          "min": 233656320,
+          "max": 283979776
+        },
+        "after": {
+          "samples": [
+            182288384,
+            137555968,
+            137531392
+          ],
+          "median": 137555968,
+          "min": 137531392,
+          "max": 182288384
+        },
+        "changePercent": -42.027309292409676
+      },
+      "heapAlloc": {
+        "before": {
+          "samples": [
+            74767552,
+            72442488,
+            73767424
+          ],
+          "median": 73767424,
+          "min": 72442488,
+          "max": 74767552
+        },
+        "after": {
+          "samples": [
+            19009320,
+            19303976,
+            19304544
+          ],
+          "median": 19303976,
+          "min": 19009320,
+          "max": 19304544
+        },
+        "changePercent": -73.83129984313943
+      }
+    }
+  },
+  "transitions": {
+    "card": {
+      "before": {
+        "samples": [
+          120.2714,
+          120.4259,
+          119.7449
+        ],
+        "median": 120.2714,
+        "min": 119.7449,
+        "max": 120.4259
+      },
+      "after": {
+        "samples": [
+          118.4269,
+          120.0874,
+          116.3208
+        ],
+        "median": 118.4269,
+        "min": 116.3208,
+        "max": 120.0874
+      },
+      "changePercent": -1.5336148078429201
+    },
+    "cold-card": {
+      "before": {
+        "samples": [
+          2.8704,
+          2.6147,
+          2.6297
+        ],
+        "median": 2.6297,
+        "min": 2.6147,
+        "max": 2.8704
+      },
+      "after": {
+        "samples": [
+          18.7928,
+          18.063,
+          17.5258
+        ],
+        "median": 18.063,
+        "min": 17.5258,
+        "max": 18.7928
+      },
+      "changePercent": 586.8844354869376
+    }
+  },
+  "runs": [
+    {
+      "build": "baseline",
+      "round": 1,
+      "durationMs": 33732,
+      "sampledPeakPrivateBytes": 267026432,
+      "sampledPeakPrivateWorkingSetBytes": 232873984,
+      "peakWorkingSetBytes": 290054144,
+      "cpuMs": 2390.625,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 209207296,
+          "medianWorkingSetBytes": 229588992,
+          "medianPrivateWorkingSetBytes": 175792128,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 213852160,
+          "medianWorkingSetBytes": 236167168,
+          "medianPrivateWorkingSetBytes": 179855360,
+          "sampleCount": 18
+        },
+        "cold-card": {
+          "medianPrivateBytes": 267026432,
+          "medianWorkingSetBytes": 289189888,
+          "medianPrivateWorkingSetBytes": 232873984,
+          "sampleCount": 17
+        },
+        "orb": {
+          "medianPrivateBytes": 261505024,
+          "medianWorkingSetBytes": 283979776,
+          "medianPrivateWorkingSetBytes": 227667968,
+          "sampleCount": 17
+        },
+        "overview": {
+          "medianPrivateBytes": 201875456,
+          "medianWorkingSetBytes": 217296896,
+          "medianPrivateWorkingSetBytes": 163745792,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 215531520,
+          "medianWorkingSetBytes": 233803776,
+          "medianPrivateWorkingSetBytes": 180027392,
+          "sampleCount": 17
+        },
+        "restored": {
+          "medianPrivateBytes": 264749056,
+          "medianWorkingSetBytes": 287322112,
+          "medianPrivateWorkingSetBytes": 231010304,
+          "sampleCount": 18
+        },
+        "startup": {
+          "medianPrivateBytes": 115544064,
+          "medianWorkingSetBytes": 82546688,
+          "medianPrivateWorkingSetBytes": 51671040,
+          "sampleCount": 5
+        },
+        "tray": {
+          "medianPrivateBytes": 261505024,
+          "medianWorkingSetBytes": 283979776,
+          "medianPrivateWorkingSetBytes": 227667968,
+          "sampleCount": 17
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4407,
+          "heapAlloc": 66161936,
+          "heapInuse": 68632576,
+          "heapReleased": 5971968,
+          "heapSys": 75104256,
+          "numGC": 4,
+          "stage": "overview",
+          "totalAlloc": 68565760
+        },
+        {
+          "elapsedMs": 8706,
+          "heapAlloc": 43128024,
+          "heapInuse": 46833664,
+          "heapReleased": 5980160,
+          "heapSys": 87654400,
+          "numGC": 5,
+          "stage": "pages",
+          "totalAlloc": 85612632
+        },
+        {
+          "elapsedMs": 12991,
+          "heapAlloc": 27814968,
+          "heapInuse": 32006144,
+          "heapReleased": 12869632,
+          "heapSys": 87654400,
+          "numGC": 6,
+          "stage": "calls",
+          "totalAlloc": 115898848
+        },
+        {
+          "elapsedMs": 17112,
+          "heapAlloc": 55839280,
+          "heapInuse": 59883520,
+          "heapReleased": 15835136,
+          "heapSys": 95977472,
+          "numGC": 7,
+          "stage": "card",
+          "totalAlloc": 150336624
+        },
+        {
+          "elapsedMs": 21113,
+          "heapAlloc": 74754776,
+          "heapInuse": 78970880,
+          "heapReleased": 18096128,
+          "heapSys": 142082048,
+          "numGC": 9,
+          "stage": "orb",
+          "totalAlloc": 253808304
+        },
+        {
+          "elapsedMs": 25114,
+          "heapAlloc": 74767552,
+          "heapInuse": 78979072,
+          "heapReleased": 18096128,
+          "heapSys": 142082048,
+          "numGC": 9,
+          "stage": "tray",
+          "totalAlloc": 253821080
+        },
+        {
+          "elapsedMs": 29374,
+          "heapAlloc": 95861496,
+          "heapInuse": 99368960,
+          "heapReleased": 14852096,
+          "heapSys": 142082048,
+          "numGC": 9,
+          "stage": "restored",
+          "totalAlloc": 274915024
+        },
+        {
+          "elapsedMs": 33377,
+          "heapAlloc": 48913952,
+          "heapInuse": 53436416,
+          "heapReleased": 42500096,
+          "heapSys": 142147584,
+          "numGC": 10,
+          "stage": "cold-card",
+          "totalAlloc": 285708712
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 120.2714,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 2.8704,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 283
+    },
+    {
+      "build": "candidate",
+      "round": 1,
+      "durationMs": 33498,
+      "sampledPeakPrivateBytes": 210493440,
+      "sampledPeakPrivateWorkingSetBytes": 179666944,
+      "peakWorkingSetBytes": 236130304,
+      "cpuMs": 2296.875,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 164753408,
+          "medianWorkingSetBytes": 187604992,
+          "medianPrivateWorkingSetBytes": 133795840,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 190742528,
+          "medianWorkingSetBytes": 216285184,
+          "medianPrivateWorkingSetBytes": 159973376,
+          "sampleCount": 17
+        },
+        "cold-card": {
+          "medianPrivateBytes": 169037824,
+          "medianWorkingSetBytes": 194158592,
+          "medianPrivateWorkingSetBytes": 137822208,
+          "sampleCount": 17
+        },
+        "orb": {
+          "medianPrivateBytes": 188166144,
+          "medianWorkingSetBytes": 213721088,
+          "medianPrivateWorkingSetBytes": 157401088,
+          "sampleCount": 17
+        },
+        "overview": {
+          "medianPrivateBytes": 162140160,
+          "medianWorkingSetBytes": 181256192,
+          "medianPrivateWorkingSetBytes": 127692800,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 162205696,
+          "medianWorkingSetBytes": 185372672,
+          "medianPrivateWorkingSetBytes": 131584000,
+          "sampleCount": 17
+        },
+        "restored": {
+          "medianPrivateBytes": 157278208,
+          "medianWorkingSetBytes": 182730752,
+          "medianPrivateWorkingSetBytes": 126406656,
+          "sampleCount": 18
+        },
+        "startup": {
+          "medianPrivateBytes": 72970240,
+          "medianWorkingSetBytes": 48566272,
+          "medianPrivateWorkingSetBytes": 21209088,
+          "sampleCount": 3
+        },
+        "tray": {
+          "medianPrivateBytes": 156655616,
+          "medianWorkingSetBytes": 182288384,
+          "medianPrivateWorkingSetBytes": 125968384,
+          "sampleCount": 18
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4175,
+          "heapAlloc": 19341312,
+          "heapInuse": 21757952,
+          "heapReleased": 7979008,
+          "heapSys": 37388288,
+          "numGC": 8,
+          "stage": "overview",
+          "totalAlloc": 45794832
+        },
+        {
+          "elapsedMs": 8456,
+          "heapAlloc": 20148656,
+          "heapInuse": 23027712,
+          "heapReleased": 7913472,
+          "heapSys": 37355520,
+          "numGC": 10,
+          "stage": "pages",
+          "totalAlloc": 61353832
+        },
+        {
+          "elapsedMs": 12739,
+          "heapAlloc": 23008928,
+          "heapInuse": 25960448,
+          "heapReleased": 6537216,
+          "heapSys": 37355520,
+          "numGC": 14,
+          "stage": "calls",
+          "totalAlloc": 92688288
+        },
+        {
+          "elapsedMs": 16858,
+          "heapAlloc": 39837952,
+          "heapInuse": 43180032,
+          "heapReleased": 3637248,
+          "heapSys": 58261504,
+          "numGC": 17,
+          "stage": "card",
+          "totalAlloc": 125595112
+        },
+        {
+          "elapsedMs": 20859,
+          "heapAlloc": 30073520,
+          "heapInuse": 33374208,
+          "heapReleased": 27525120,
+          "heapSys": 79233024,
+          "numGC": 22,
+          "stage": "orb",
+          "totalAlloc": 226727600
+        },
+        {
+          "elapsedMs": 24860,
+          "heapAlloc": 19009320,
+          "heapInuse": 22118400,
+          "heapReleased": 57049088,
+          "heapSys": 79233024,
+          "numGC": 23,
+          "stage": "tray",
+          "totalAlloc": 226744232
+        },
+        {
+          "elapsedMs": 29143,
+          "heapAlloc": 19131256,
+          "heapInuse": 22470656,
+          "heapReleased": 56688640,
+          "heapSys": 79200256,
+          "numGC": 26,
+          "stage": "restored",
+          "totalAlloc": 248071280
+        },
+        {
+          "elapsedMs": 33162,
+          "heapAlloc": 28634864,
+          "heapInuse": 31768576,
+          "heapReleased": 44941312,
+          "heapSys": 79200256,
+          "numGC": 27,
+          "stage": "cold-card",
+          "totalAlloc": 260294280
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 118.4269,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 18.7928,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 281
+    },
+    {
+      "build": "candidate",
+      "round": 2,
+      "durationMs": 33397,
+      "sampledPeakPrivateBytes": 210984960,
+      "sampledPeakPrivateWorkingSetBytes": 144109568,
+      "peakWorkingSetBytes": 191107072,
+      "cpuMs": 2250,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 165470208,
+          "medianWorkingSetBytes": 142647296,
+          "medianPrivateWorkingSetBytes": 98758656,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 189489152,
+          "medianWorkingSetBytes": 169496576,
+          "medianPrivateWorkingSetBytes": 122781696,
+          "sampleCount": 17
+        },
+        "cold-card": {
+          "medianPrivateBytes": 169951232,
+          "medianWorkingSetBytes": 149684224,
+          "medianPrivateWorkingSetBytes": 102875136,
+          "sampleCount": 17
+        },
+        "orb": {
+          "medianPrivateBytes": 209993728,
+          "medianWorkingSetBytes": 189906944,
+          "medianPrivateWorkingSetBytes": 143151104,
+          "sampleCount": 17
+        },
+        "overview": {
+          "medianPrivateBytes": 162607104,
+          "medianWorkingSetBytes": 135917568,
+          "medianPrivateWorkingSetBytes": 92741632,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 163119104,
+          "medianWorkingSetBytes": 140136448,
+          "medianPrivateWorkingSetBytes": 96518144,
+          "sampleCount": 17
+        },
+        "restored": {
+          "medianPrivateBytes": 158322688,
+          "medianWorkingSetBytes": 138424320,
+          "medianPrivateWorkingSetBytes": 91635712,
+          "sampleCount": 17
+        },
+        "startup": {
+          "medianPrivateBytes": 72589312,
+          "medianWorkingSetBytes": 49057792,
+          "medianPrivateWorkingSetBytes": 21147648,
+          "sampleCount": 3
+        },
+        "tray": {
+          "medianPrivateBytes": 157523968,
+          "medianWorkingSetBytes": 137555968,
+          "medianPrivateWorkingSetBytes": 90796032,
+          "sampleCount": 18
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4172,
+          "heapAlloc": 19798896,
+          "heapInuse": 22290432,
+          "heapReleased": 7700480,
+          "heapSys": 37322752,
+          "numGC": 8,
+          "stage": "overview",
+          "totalAlloc": 45813520
+        },
+        {
+          "elapsedMs": 8471,
+          "heapAlloc": 21239248,
+          "heapInuse": 24354816,
+          "heapReleased": 7593984,
+          "heapSys": 37322752,
+          "numGC": 10,
+          "stage": "pages",
+          "totalAlloc": 63111696
+        },
+        {
+          "elapsedMs": 12755,
+          "heapAlloc": 21170032,
+          "heapInuse": 24305664,
+          "heapReleased": 6086656,
+          "heapSys": 37289984,
+          "numGC": 14,
+          "stage": "calls",
+          "totalAlloc": 94576488
+        },
+        {
+          "elapsedMs": 16876,
+          "heapAlloc": 50002248,
+          "heapInuse": 53166080,
+          "heapReleased": 4956160,
+          "heapSys": 62423040,
+          "numGC": 16,
+          "stage": "card",
+          "totalAlloc": 127536512
+        },
+        {
+          "elapsedMs": 20877,
+          "heapAlloc": 64194736,
+          "heapInuse": 67420160,
+          "heapReleased": 6152192,
+          "heapSys": 79167488,
+          "numGC": 21,
+          "stage": "orb",
+          "totalAlloc": 231925144
+        },
+        {
+          "elapsedMs": 24878,
+          "heapAlloc": 19303976,
+          "heapInuse": 22503424,
+          "heapReleased": 56623104,
+          "heapSys": 79167488,
+          "numGC": 22,
+          "stage": "tray",
+          "totalAlloc": 231938472
+        },
+        {
+          "elapsedMs": 29140,
+          "heapAlloc": 19127088,
+          "heapInuse": 22568960,
+          "heapReleased": 55828480,
+          "heapSys": 79134720,
+          "numGC": 25,
+          "stage": "restored",
+          "totalAlloc": 253164840
+        },
+        {
+          "elapsedMs": 33159,
+          "heapAlloc": 28738648,
+          "heapInuse": 32129024,
+          "heapReleased": 44195840,
+          "heapSys": 79134720,
+          "numGC": 26,
+          "stage": "cold-card",
+          "totalAlloc": 265388496
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 120.0874,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 18.063,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 278
+    },
+    {
+      "build": "baseline",
+      "round": 2,
+      "durationMs": 33623,
+      "sampledPeakPrivateBytes": 266477568,
+      "sampledPeakPrivateWorkingSetBytes": 199643136,
+      "peakWorkingSetBytes": 247189504,
+      "cpuMs": 2500,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 207867904,
+          "medianWorkingSetBytes": 184713216,
+          "medianPrivateWorkingSetBytes": 141135872,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 210173952,
+          "medianWorkingSetBytes": 189853696,
+          "medianPrivateWorkingSetBytes": 143421440,
+          "sampleCount": 17
+        },
+        "cold-card": {
+          "medianPrivateBytes": 238481408,
+          "medianWorkingSetBytes": 218099712,
+          "medianPrivateWorkingSetBytes": 171622400,
+          "sampleCount": 18
+        },
+        "orb": {
+          "medianPrivateBytes": 253796352,
+          "medianWorkingSetBytes": 233656320,
+          "medianPrivateWorkingSetBytes": 187203584,
+          "sampleCount": 17
+        },
+        "overview": {
+          "medianPrivateBytes": 201052160,
+          "medianWorkingSetBytes": 172994560,
+          "medianPrivateWorkingSetBytes": 130048000,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 214368256,
+          "medianWorkingSetBytes": 189300736,
+          "medianPrivateWorkingSetBytes": 145895424,
+          "sampleCount": 17
+        },
+        "restored": {
+          "medianPrivateBytes": 265543680,
+          "medianWorkingSetBytes": 245084160,
+          "medianPrivateWorkingSetBytes": 198619136,
+          "sampleCount": 18
+        },
+        "startup": {
+          "medianPrivateBytes": 114679808,
+          "medianWorkingSetBytes": 82108416,
+          "medianPrivateWorkingSetBytes": 51384320,
+          "sampleCount": 4
+        },
+        "tray": {
+          "medianPrivateBytes": 253796352,
+          "medianWorkingSetBytes": 233656320,
+          "medianPrivateWorkingSetBytes": 187203584,
+          "sampleCount": 18
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4360,
+          "heapAlloc": 66666568,
+          "heapInuse": 68976640,
+          "heapReleased": 6021120,
+          "heapSys": 75104256,
+          "numGC": 3,
+          "stage": "overview",
+          "totalAlloc": 69088456
+        },
+        {
+          "elapsedMs": 8643,
+          "heapAlloc": 43039832,
+          "heapInuse": 46735360,
+          "heapReleased": 6610944,
+          "heapSys": 87687168,
+          "numGC": 4,
+          "stage": "pages",
+          "totalAlloc": 85781528
+        },
+        {
+          "elapsedMs": 12927,
+          "heapAlloc": 28582768,
+          "heapInuse": 32579584,
+          "heapReleased": 13901824,
+          "heapSys": 87687168,
+          "numGC": 5,
+          "stage": "calls",
+          "totalAlloc": 117001632
+        },
+        {
+          "elapsedMs": 17048,
+          "heapAlloc": 55798744,
+          "heapInuse": 59842560,
+          "heapReleased": 10272768,
+          "heapSys": 87621632,
+          "numGC": 6,
+          "stage": "card",
+          "totalAlloc": 151502496
+        },
+        {
+          "elapsedMs": 21049,
+          "heapAlloc": 72429712,
+          "heapInuse": 76709888,
+          "heapReleased": 20750336,
+          "heapSys": 137953280,
+          "numGC": 8,
+          "stage": "orb",
+          "totalAlloc": 257531544
+        },
+        {
+          "elapsedMs": 25050,
+          "heapAlloc": 72442488,
+          "heapInuse": 76718080,
+          "heapReleased": 20750336,
+          "heapSys": 137953280,
+          "numGC": 8,
+          "stage": "tray",
+          "totalAlloc": 257544320
+        },
+        {
+          "elapsedMs": 29328,
+          "heapAlloc": 93640024,
+          "heapInuse": 97067008,
+          "heapReleased": 9003008,
+          "heapSys": 137953280,
+          "numGC": 8,
+          "stage": "restored",
+          "totalAlloc": 278741856
+        },
+        {
+          "elapsedMs": 33331,
+          "heapAlloc": 52711072,
+          "heapInuse": 57262080,
+          "heapReleased": 36003840,
+          "heapSys": 137953280,
+          "numGC": 9,
+          "stage": "cold-card",
+          "totalAlloc": 289535560
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 120.4259,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 2.6147,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 281
+    },
+    {
+      "build": "baseline",
+      "round": 3,
+      "durationMs": 33551,
+      "sampledPeakPrivateBytes": 263696384,
+      "sampledPeakPrivateWorkingSetBytes": 195739648,
+      "peakWorkingSetBytes": 243425280,
+      "cpuMs": 2468.75,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 211218432,
+          "medianWorkingSetBytes": 186888192,
+          "medianPrivateWorkingSetBytes": 143323136,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 213581824,
+          "medianWorkingSetBytes": 192143360,
+          "medianPrivateWorkingSetBytes": 145661952,
+          "sampleCount": 18
+        },
+        "cold-card": {
+          "medianPrivateBytes": 263688192,
+          "medianWorkingSetBytes": 242233344,
+          "medianPrivateWorkingSetBytes": 195731456,
+          "sampleCount": 17
+        },
+        "orb": {
+          "medianPrivateBytes": 258576384,
+          "medianWorkingSetBytes": 237277184,
+          "medianPrivateWorkingSetBytes": 190787584,
+          "sampleCount": 17
+        },
+        "overview": {
+          "medianPrivateBytes": 202199040,
+          "medianWorkingSetBytes": 173187072,
+          "medianPrivateWorkingSetBytes": 130199552,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 215683072,
+          "medianWorkingSetBytes": 189554688,
+          "medianPrivateWorkingSetBytes": 146161664,
+          "sampleCount": 18
+        },
+        "restored": {
+          "medianPrivateBytes": 261664768,
+          "medianWorkingSetBytes": 240328704,
+          "medianPrivateWorkingSetBytes": 193835008,
+          "sampleCount": 17
+        },
+        "startup": {
+          "medianPrivateBytes": 115380224,
+          "medianWorkingSetBytes": 82145280,
+          "medianPrivateWorkingSetBytes": 51392512,
+          "sampleCount": 5
+        },
+        "tray": {
+          "medianPrivateBytes": 258576384,
+          "medianWorkingSetBytes": 237277184,
+          "medianPrivateWorkingSetBytes": 190787584,
+          "sampleCount": 18
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4358,
+          "heapAlloc": 66690912,
+          "heapInuse": 69083136,
+          "heapReleased": 1490944,
+          "heapSys": 70909952,
+          "numGC": 3,
+          "stage": "overview",
+          "totalAlloc": 69100152
+        },
+        {
+          "elapsedMs": 8609,
+          "heapAlloc": 40263176,
+          "heapInuse": 43753472,
+          "heapReleased": 1925120,
+          "heapSys": 83492864,
+          "numGC": 4,
+          "stage": "pages",
+          "totalAlloc": 83042104
+        },
+        {
+          "elapsedMs": 12892,
+          "heapAlloc": 25562864,
+          "heapInuse": 30113792,
+          "heapReleased": 7487488,
+          "heapSys": 83460096,
+          "numGC": 5,
+          "stage": "calls",
+          "totalAlloc": 114450304
+        },
+        {
+          "elapsedMs": 17013,
+          "heapAlloc": 54927384,
+          "heapInuse": 58966016,
+          "heapReleased": 8044544,
+          "heapSys": 87621632,
+          "numGC": 6,
+          "stage": "card",
+          "totalAlloc": 148868944
+        },
+        {
+          "elapsedMs": 21015,
+          "heapAlloc": 73753560,
+          "heapInuse": 77709312,
+          "heapReleased": 8830976,
+          "heapSys": 129531904,
+          "numGC": 8,
+          "stage": "orb",
+          "totalAlloc": 251084888
+        },
+        {
+          "elapsedMs": 25016,
+          "heapAlloc": 73767424,
+          "heapInuse": 77717504,
+          "heapReleased": 8830976,
+          "heapSys": 129531904,
+          "numGC": 8,
+          "stage": "tray",
+          "totalAlloc": 251098752
+        },
+        {
+          "elapsedMs": 29294,
+          "heapAlloc": 94964056,
+          "heapInuse": 98377728,
+          "heapReleased": 5742592,
+          "heapSys": 129531904,
+          "numGC": 8,
+          "stage": "restored",
+          "totalAlloc": 272295384
+        },
+        {
+          "elapsedMs": 33297,
+          "heapAlloc": 49290456,
+          "heapInuse": 53624832,
+          "heapReleased": 22429696,
+          "heapSys": 129531904,
+          "numGC": 9,
+          "stage": "cold-card",
+          "totalAlloc": 283090176
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 119.7449,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 2.6297,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 283
+    },
+    {
+      "build": "candidate",
+      "round": 3,
+      "durationMs": 33509,
+      "sampledPeakPrivateBytes": 209014784,
+      "sampledPeakPrivateWorkingSetBytes": 142323712,
+      "peakWorkingSetBytes": 190513152,
+      "cpuMs": 2734.375,
+      "stages": {
+        "calls": {
+          "medianPrivateBytes": 164278272,
+          "medianWorkingSetBytes": 142540800,
+          "medianPrivateWorkingSetBytes": 98566144,
+          "sampleCount": 17
+        },
+        "card": {
+          "medianPrivateBytes": 188231680,
+          "medianWorkingSetBytes": 169193472,
+          "medianPrivateWorkingSetBytes": 122421248,
+          "sampleCount": 17
+        },
+        "cold-card": {
+          "medianPrivateBytes": 168222720,
+          "medianWorkingSetBytes": 149340160,
+          "medianPrivateWorkingSetBytes": 102457344,
+          "sampleCount": 17
+        },
+        "orb": {
+          "medianPrivateBytes": 201412608,
+          "medianWorkingSetBytes": 182624256,
+          "medianPrivateWorkingSetBytes": 135811072,
+          "sampleCount": 18
+        },
+        "overview": {
+          "medianPrivateBytes": 159981568,
+          "medianWorkingSetBytes": 134840320,
+          "medianPrivateWorkingSetBytes": 91549696,
+          "sampleCount": 17
+        },
+        "pages": {
+          "medianPrivateBytes": 161218560,
+          "medianWorkingSetBytes": 139620352,
+          "medianPrivateWorkingSetBytes": 95854592,
+          "sampleCount": 17
+        },
+        "restored": {
+          "medianPrivateBytes": 156262400,
+          "medianWorkingSetBytes": 137670656,
+          "medianPrivateWorkingSetBytes": 90804224,
+          "sampleCount": 17
+        },
+        "startup": {
+          "medianPrivateBytes": 72511488,
+          "medianWorkingSetBytes": 47132672,
+          "medianPrivateWorkingSetBytes": 20668416,
+          "sampleCount": 3
+        },
+        "tray": {
+          "medianPrivateBytes": 156213248,
+          "medianWorkingSetBytes": 137531392,
+          "medianPrivateWorkingSetBytes": 90714112,
+          "sampleCount": 17
+        }
+      },
+      "heap": [
+        {
+          "elapsedMs": 4178,
+          "heapAlloc": 20327488,
+          "heapInuse": 22495232,
+          "heapReleased": 5300224,
+          "heapSys": 33128448,
+          "numGC": 8,
+          "stage": "overview",
+          "totalAlloc": 45798448
+        },
+        {
+          "elapsedMs": 8476,
+          "heapAlloc": 23441768,
+          "heapInuse": 26148864,
+          "heapReleased": 4104192,
+          "heapSys": 33095680,
+          "numGC": 10,
+          "stage": "pages",
+          "totalAlloc": 61945032
+        },
+        {
+          "elapsedMs": 12795,
+          "heapAlloc": 22980544,
+          "heapInuse": 25722880,
+          "heapReleased": 6455296,
+          "heapSys": 37257216,
+          "numGC": 14,
+          "stage": "calls",
+          "totalAlloc": 91817760
+        },
+        {
+          "elapsedMs": 16912,
+          "heapAlloc": 43476920,
+          "heapInuse": 46538752,
+          "heapReleased": 5808128,
+          "heapSys": 58228736,
+          "numGC": 17,
+          "stage": "card",
+          "totalAlloc": 124708736
+        },
+        {
+          "elapsedMs": 20912,
+          "heapAlloc": 42745704,
+          "heapInuse": 45826048,
+          "heapReleased": 17866752,
+          "heapSys": 83361792,
+          "numGC": 22,
+          "stage": "orb",
+          "totalAlloc": 228725912
+        },
+        {
+          "elapsedMs": 24913,
+          "heapAlloc": 19304544,
+          "heapInuse": 22200320,
+          "heapReleased": 61063168,
+          "heapSys": 83361792,
+          "numGC": 23,
+          "stage": "tray",
+          "totalAlloc": 228739528
+        },
+        {
+          "elapsedMs": 29179,
+          "heapAlloc": 19127640,
+          "heapInuse": 22216704,
+          "heapReleased": 61022208,
+          "heapSys": 83361792,
+          "numGC": 26,
+          "stage": "restored",
+          "totalAlloc": 249969896
+        },
+        {
+          "elapsedMs": 33197,
+          "heapAlloc": 28637728,
+          "heapInuse": 31580160,
+          "heapReleased": 49070080,
+          "heapSys": 83329024,
+          "numGC": 27,
+          "stage": "cold-card",
+          "totalAlloc": 262194672
+        }
+      ],
+      "transitions": [
+        {
+          "prepareMs": 116.3208,
+          "stage": "card"
+        },
+        {
+          "prepareMs": 17.5258,
+          "stage": "cold-card"
+        }
+      ],
+      "sampleCount": 279
+    }
+  ],
+  "backgroundBenchmark": {
+    "scenario": "Fresh ui.Render at 1380x960 DIP, 150% DPI; includes Tester construction and initial scale-1 drawing. Cumulative allocations, not resident memory.",
+    "samples": {
+      "false": [
+        {
+          "timeNs": 412657267,
+          "bytesPerOp": 86207848,
+          "allocationsPerOp": 118
+        },
+        {
+          "timeNs": 402247633,
+          "bytesPerOp": 85497149,
+          "allocationsPerOp": 70
+        },
+        {
+          "timeNs": 407635467,
+          "bytesPerOp": 83287698,
+          "allocationsPerOp": 67
+        }
+      ],
+      "true": [
+        {
+          "timeNs": 143735244,
+          "bytesPerOp": 46728208,
+          "allocationsPerOp": 46
+        },
+        {
+          "timeNs": 153518743,
+          "bytesPerOp": 46727120,
+          "allocationsPerOp": 44
+        },
+        {
+          "timeNs": 149585914,
+          "bytesPerOp": 46727046,
+          "allocationsPerOp": 44
+        }
+      ]
+    },
+    "timeNs": {
+      "before": {
+        "samples": [
+          412657267,
+          402247633,
+          407635467
+        ],
+        "median": 407635467,
+        "min": 402247633,
+        "max": 412657267
+      },
+      "after": {
+        "samples": [
+          143735244,
+          153518743,
+          149585914
+        ],
+        "median": 149585914,
+        "min": 143735244,
+        "max": 153518743
+      },
+      "changePercent": -63.30399925676733
+    },
+    "bytesPerOp": {
+      "before": {
+        "samples": [
+          86207848,
+          85497149,
+          83287698
+        ],
+        "median": 85497149,
+        "min": 83287698,
+        "max": 86207848
+      },
+      "after": {
+        "samples": [
+          46728208,
+          46727120,
+          46727046
+        ],
+        "median": 46727120,
+        "min": 46727046,
+        "max": 46728208
+      },
+      "changePercent": -45.34657524077207
+    },
+    "allocationsPerOp": {
+      "before": {
+        "samples": [
+          118,
+          70,
+          67
+        ],
+        "median": 70,
+        "min": 67,
+        "max": 118
+      },
+      "after": {
+        "samples": [
+          46,
+          44,
+          44
+        ],
+        "median": 44,
+        "min": 44,
+        "max": 46
+      },
+      "changePercent": -37.142857142857146
+    }
+  },
+  "distribution": {
+    "installer": {
+      "before": {
+        "samples": [
+          7838608
+        ],
+        "median": 7838608,
+        "min": 7838608,
+        "max": 7838608
+      },
+      "after": {
+        "samples": [
+          7882088
+        ],
+        "median": 7882088,
+        "min": 7882088,
+        "max": 7882088
+      },
+      "changePercent": 0.5546903225674749
+    },
+    "archive": {
+      "before": {
+        "samples": [
+          9514308
+        ],
+        "median": 9514308,
+        "min": 9514308,
+        "max": 9514308
+      },
+      "after": {
+        "samples": [
+          9580521
+        ],
+        "median": 9580521,
+        "min": 9580521,
+        "max": 9580521
+      },
+      "changePercent": 0.6959308023242405
+    }
+  }
+}

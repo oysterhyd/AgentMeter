@@ -22,6 +22,7 @@ import (
 type Options struct {
 	Data, Home, Capture, Snapshot       string
 	Offline, Hidden, Smoke, SmokeWidget bool
+	SmokeMemory                         bool
 	RepairDatabase                      bool
 	Stdio                               bool
 	CheckUpdates                        bool
@@ -57,6 +58,8 @@ type App struct {
 	selectedRecord                                      int
 	breakdownSearch                                     string
 	brand                                               *ui.Bitmap
+	brandScale                                          float32
+	background                                          backgroundRenderer
 	lastRenderedPage                                    int
 	breakdownSort                                       ui.SortOrder
 	generation                                          uint64
@@ -97,10 +100,12 @@ func Run(resources fs.FS) error {
 	flag.BoolVar(&o.Hidden, "hidden", false, "start in tray")
 	flag.BoolVar(&o.Smoke, "smoke", false, "capture all native pages and exit")
 	flag.BoolVar(&o.SmokeWidget, "smoke-widget", false, "verify native transparent widget")
+	flag.BoolVar(&o.SmokeMemory, "smoke-memory", false, "measure isolated native GUI memory states without screenshots")
 	flag.BoolVar(&o.Stdio, "stdio", false, "run the Go data service over private stdio")
 	flag.BoolVar(&o.CheckUpdates, "check-updates", false, "check the signed update feed and exit without opening monitor data")
 	flag.BoolVar(&o.RepairDatabase, "repair-database", false, "back up and repair monitor database, then exit")
 	flag.Parse()
+	o.Smoke = o.Smoke || o.SmokeMemory
 	if o.CheckUpdates {
 		mygo.App.SetVersion(appVersion)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -205,6 +210,8 @@ func Run(resources fs.FS) error {
 		return err
 	}
 	a := NewApp()
+	configureGUIMemory()
+	a.background.adaptMemory = true
 	mygo.App.SetVersion(appVersion)
 	icon, _ := fs.ReadFile(resources, "assets/icon.png")
 	// Use the SDK's native updater: manual checks only, no webview runtime.
@@ -215,9 +222,6 @@ func Run(resources fs.FS) error {
 	a.resources = resources
 	a.client = client
 	a.options = o
-	if b, e := fs.ReadFile(resources, "assets/monitor-glass.png"); e == nil {
-		a.brand, _ = ui.DecodeBitmap(b)
-	}
 	for path, dest := range map[string]*map[string]string{"assets/locales/translations.json": &a.translations, "assets/locales/system-translations.json": &a.systemTranslations} {
 		b, _ := fs.ReadFile(resources, path)
 		_ = json.Unmarshal(b, dest)
@@ -228,6 +232,11 @@ func Run(resources fs.FS) error {
 		}
 	})
 	mygo.App.WhenReady(func() {
+		scale := float32(1)
+		for _, display := range mygo.Screen.Displays() {
+			scale = max(scale, float32(display.ScaleFactor))
+		}
+		a.prepareBrand(scale)
 		a.win = mygo.NewWindow(mainWindowOptions(mygo.Screen.PrimaryDisplay().WorkArea, o.Hidden || mygo.App.WasOpenedAtLogin(), ui.View(a.View)))
 		a.keepWindowVisible()
 		icon, _ := fs.ReadFile(resources, "assets/icon.png")
@@ -258,7 +267,11 @@ func Run(resources fs.FS) error {
 			}
 		}
 		if o.Smoke {
-			go a.smoke()
+			if o.SmokeMemory {
+				go a.smokeMemory()
+			} else {
+				go a.smoke()
+			}
 		}
 	})
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {

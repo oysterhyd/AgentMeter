@@ -49,7 +49,7 @@ func TestRecentActivityContainsAllEightDays(t *testing.T) {
 			a := fixtureApp(t)
 			activity := activityFixture()
 			tt := ui.NewTester(func(c *ui.Context) {
-				skin(c)
+				a.skin(c)
 				ui.Column(c).Padding(20).Gap(14).Children(func() {
 					a.activityDetails(c, activity)
 					ui.Text(c, "footer")
@@ -87,7 +87,7 @@ func TestActivityHoursFollowPointerAndKeyboard(t *testing.T) {
 	a := fixtureApp(t)
 	activity := activityFixture()
 	tt := ui.NewTester(func(c *ui.Context) {
-		skin(c)
+		a.skin(c)
 		ui.Column(c).Padding(20).Children(func() { a.activityHours(c, activity) })
 	}, 640, 320)
 	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
@@ -126,7 +126,7 @@ func TestActivityHoursFollowPointerAndKeyboard(t *testing.T) {
 func TestCalendarPointerKeepsHitTargetsAndFutureDatesDisabled(t *testing.T) {
 	a := fixtureApp(t)
 	a.data["activity"] = activityFixture()
-	tt := ui.NewTester(func(c *ui.Context) { skin(c); a.activity(c, true) }, 1000, 400)
+	tt := ui.NewTester(func(c *ui.Context) { a.skin(c); a.activity(c, true) }, 1000, 400)
 	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
 	label := "2026-10-15 · 150,000 tokens"
 	r, ok := tt.Find(label)
