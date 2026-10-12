@@ -147,7 +147,7 @@ func (s *Service) receiveTelemetry(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	if _, err = s.Call(ctx, "_telemetry", records); err != nil {
+	if _, err = s.CallValue(ctx, "_telemetry", records); err != nil {
 		http.Error(w, "collector unavailable; retry batch", http.StatusServiceUnavailable)
 		return
 	}

@@ -138,6 +138,7 @@ type Store struct {
 	piFiles                map[string]bool
 	lastDiscovery          time.Time
 	catalogHome, catalogPi string
+	scanBoundary           *string
 }
 
 func Open(file string) (*Store, error) {
@@ -295,6 +296,23 @@ func (s *Store) exec(q string, args ...any) error {
 	return e
 }
 func (s *Store) query(q string, args ...any) ([]Object, error) {
+	out := []Object{}
+	err := s.readRows(q, args, func(cols []string, values []any) {
+		row := make(Object, len(cols))
+		for i, k := range cols {
+			row[k] = values[i]
+		}
+		out = append(out, row)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, err
+}
+
+// readRows owns the SQL cursor. Callbacks must not issue another query on the
+// single connection, and must copy values they retain beyond the callback.
+func (s *Store) readRows(q string, args []any, visit func([]string, []any)) error {
 	var r *sql.Rows
 	var e error
 	if s.tx != nil {
@@ -303,14 +321,13 @@ func (s *Store) query(q string, args ...any) ([]Object, error) {
 		r, e = s.db.Query(q, args...)
 	}
 	if e != nil {
-		return nil, e
+		return e
 	}
 	defer r.Close()
 	cols, e := r.Columns()
 	if e != nil {
-		return nil, e
+		return e
 	}
-	out := []Object{}
 	values := make([]any, len(cols))
 	p := make([]any, len(cols))
 	for i := range values {
@@ -318,19 +335,32 @@ func (s *Store) query(q string, args ...any) ([]Object, error) {
 	}
 	for r.Next() {
 		if e = r.Scan(p...); e != nil {
-			return nil, e
+			return e
 		}
-		row := make(Object, len(cols))
-		for i, k := range cols {
-			v := values[i]
+		for i, v := range values {
 			if b, ok := v.([]byte); ok {
-				v = string(b)
+				values[i] = string(b)
 			}
-			row[k] = v
 		}
-		out = append(out, row)
+		visit(cols, values)
 	}
-	return out, r.Err()
+	return r.Err()
+}
+
+// Aggregations borrow one row map instead of retaining every database row.
+func (s *Store) each(q string, args []any, visit func(Object)) {
+	var row Object
+	if err := s.readRows(q, args, func(cols []string, values []any) {
+		if row == nil {
+			row = make(Object, len(cols))
+		}
+		for i, k := range cols {
+			row[k] = values[i]
+		}
+		visit(row)
+	}); err != nil {
+		panic(err)
+	}
 }
 func (s *Store) one(q string, args ...any) (Object, error) {
 	r, e := s.query(q, args...)
@@ -371,6 +401,13 @@ func (s *Store) settings() Object {
 		r[k] = v
 	}
 	return r
+}
+
+func (s *Store) clearedAt() string {
+	if s.scanBoundary != nil {
+		return *s.scanBoundary
+	}
+	return text(s.settings()["clearedAt"])
 }
 func (s *Store) prices() []Object {
 	return s.mustQuery("SELECT * FROM prices ORDER BY effective DESC, CASE WHEN source='手动设置' THEN 1 ELSE 0 END DESC, id DESC")

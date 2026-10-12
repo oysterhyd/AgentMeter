@@ -16,6 +16,9 @@ var interesting = regexp.MustCompile(`"type"\s*:\s*"(session_meta|turn_context|t
 var interestingPi = regexp.MustCompile(`^\s*\{\s*"type"\s*:\s*"(?:session|message|usage)"`)
 
 func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full bool, progress func(Object)) (Object, error) {
+	cleared := s.clearedAt()
+	s.scanBoundary = &cleared
+	defer func() { s.scanBoundary = nil }()
 	now := time.Now()
 	stamp := iso(now)
 	if e := s.observe(home, stamp, "codex"); e != nil {
@@ -105,6 +108,8 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			diagnostics = append(diagnostics, Object{"code": code, "fileId": hash(file)[:12]})
 		}
 	}
+	var reader *bufio.Reader
+	var scratch []byte
 	for _, file := range files {
 		if e := ctx.Err(); e != nil {
 			return nil, e
@@ -117,10 +122,6 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		}
 		s.catalog[file] = st.ModTime()
 		old := s.mustOne("SELECT * FROM files WHERE path=?", file)
-		state := Object{}
-		if len(old) > 0 {
-			_ = json.Unmarshal([]byte(text(old["state"])), &state)
-		}
 		pi := s.piFiles[file]
 		version := codexParserVersion
 		if pi {
@@ -137,8 +138,9 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		if !reparse && num(old["offset"]) <= float64(st.Size()) {
 			offset = int64(num(old["offset"]))
 		}
-		if offset == 0 {
-			state = Object{}
+		state := Object{}
+		if offset > 0 {
+			_ = json.Unmarshal([]byte(text(old["state"])), &state)
 		}
 		if !pi && state["source"] == "" && offset > 0 {
 			if e = s.exec("UPDATE files SET offset=?,mtime=? WHERE path=?", st.Size(), mtime, file); e != nil {
@@ -156,8 +158,11 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			if _, e = input.Seek(offset, io.SeekStart); e != nil {
 				return e
 			}
-			reader := bufio.NewReaderSize(input, 256*1024)
-			var scratch []byte
+			if reader == nil {
+				reader = bufio.NewReaderSize(input, 256*1024)
+			} else {
+				reader.Reset(input)
+			}
 			for {
 				if e = ctx.Err(); e != nil {
 					return e
@@ -194,6 +199,11 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			}
 			return s.exec("INSERT OR REPLACE INTO files(path,offset,state,mtime,parser_version) VALUES(?,?,?,?,?)", file, offset, jsonText(state), mtime, version)
 		})
+		// Reuse ordinary long-line storage, but release exceptional payloads
+		// before scanning the remaining files.
+		if cap(scratch) > 1<<20 {
+			scratch = nil
+		}
 		if e != nil {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()

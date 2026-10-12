@@ -22,7 +22,7 @@ type Event struct {
 	Data any
 }
 type reply struct {
-	data json.RawMessage
+	data any
 	err  error
 }
 type job struct {
@@ -113,6 +113,16 @@ func (s *Service) loop() {
 	}
 }
 func (s *Service) Call(ctx context.Context, method string, args any) (json.RawMessage, error) {
+	value, err := s.CallValue(ctx, method, args)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(value)
+}
+
+// CallValue transfers detached results to the in-process UI. Arguments are
+// still serialized before queuing, so caller mutations cannot reach the store.
+func (s *Service) CallValue(ctx context.Context, method string, args any) (any, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -138,7 +148,7 @@ func (s *Service) Call(ctx context.Context, method string, args any) (json.RawMe
 	}
 }
 func (s *Service) Close() { s.cancel(); <-s.done }
-func (s *Service) handle(method string, raw json.RawMessage) (out json.RawMessage, err error) {
+func (s *Service) handle(method string, raw json.RawMessage) (out any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", r)
@@ -243,7 +253,7 @@ func (s *Service) handle(method string, raw json.RawMessage) (out json.RawMessag
 	if method != "snapshot" && method != "widget" && method != "export" && method != "notice" {
 		s.emit("updated", nil)
 	}
-	return json.Marshal(value)
+	return value, nil
 }
 func (s *Service) scan(full bool) {
 	defer func() {

@@ -198,7 +198,7 @@ func Run(resources fs.FS) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		b, err := client.Call(ctx, "snapshot", f)
+		b, err := client.CallJSON(ctx, "snapshot", f)
 		if err == nil {
 			fmt.Println(string(b))
 		}
@@ -299,7 +299,7 @@ func serveStdio(client *Client) error {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		value, err := client.Call(ctx, r.Method, r.Args)
+		value, err := client.CallJSON(ctx, r.Method, r.Args)
 		cancel()
 		reply := Object{"id": r.ID, "result": value}
 		if err != nil {
@@ -342,14 +342,7 @@ func (a *App) load() {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		b, err := a.client.Call(ctx, "snapshot", f)
-		var next Object
-		if err == nil {
-			err = json.Unmarshal(b, &next)
-			if err == nil {
-				normalizeLists(next)
-			}
-		}
+		next, err := a.client.Object(ctx, "snapshot", f)
 		a.win.Update(func() {
 			a.loading = false
 			if generation == a.generation {
@@ -480,8 +473,7 @@ func (a *App) events() {
 			}
 			switch message.Event {
 			case "progress":
-				var progress Object
-				_ = json.Unmarshal(message.Data, &progress)
+				progress := obj(message.Data)
 				a.win.Update(func() { a.progress = progress })
 			case "updated", "recovered":
 				a.win.Update(func() {
@@ -493,8 +485,7 @@ func (a *App) events() {
 					}
 				})
 			case "error":
-				var text string
-				_ = json.Unmarshal(message.Data, &text)
+				text := str(message.Data)
 				a.win.Update(func() { a.errorText = a.system(text) })
 			case "quota":
 				go a.notifyQuota(message.Data)
@@ -510,12 +501,11 @@ func (a *App) events() {
 		}
 	}
 }
-func (a *App) notifyQuota(raw json.RawMessage) {
+func (a *App) notifyQuota(value any) {
 	if a.options.Offline {
 		return
 	}
-	var q Object
-	_ = json.Unmarshal(raw, &q)
+	q := obj(value)
 	if truth(q["muted"]) {
 		return
 	}
@@ -533,7 +523,7 @@ func (a *App) notifyQuota(raw json.RawMessage) {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				r, err := a.client.Call(ctx, "notice", key)
 				cancel()
-				if err == nil && string(r) == "true" {
+				if err == nil && r == true {
 					_ = mygo.NewNotification(mygo.NotificationOptions{Title: "Codex 额度提醒", Body: fmt.Sprintf("%s · %.0f 分钟窗口剩余 %.0f%%", str(group["limitName"]), number(w["windowDurationMins"]), 100-number(w["usedPercent"]))}).Show()
 				}
 			}
@@ -582,14 +572,11 @@ func (a *App) exportCSV() {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		b, err := a.client.Call(ctx, "export", f)
+		value, err := a.client.Call(ctx, "export", f)
 		if err != nil {
 			return nil, err
 		}
-		var text string
-		if err = json.Unmarshal(b, &text); err != nil {
-			return nil, err
-		}
+		text := str(value)
 		err = os.WriteFile(path, []byte(text), 0600)
 		return path, err
 	}, "导出完成")
@@ -633,6 +620,7 @@ func (a *App) smoke() {
 			_ = os.WriteFile(filepath.Join(a.options.Capture, id+".png"), png, 0600)
 		}
 	}
+	a.smokeCalls()
 	if a.options.SmokeWidget {
 		a.updateWait(func() { a.toggleWidget() })
 		deadline := time.Now().Add(15 * time.Second)

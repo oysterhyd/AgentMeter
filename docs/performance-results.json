@@ -1,0 +1,2003 @@
+{
+  "version": "2.8.2",
+  "baselineCommit": "f56496193e0fdc37cb0e38fa232911f75d98caa1",
+  "baselineHarness": "Identical benchmark sources and isolated smoke synchronization/call-view helpers; production algorithms from the baseline commit.",
+  "go": "go version go1.27.1 windows/amd64",
+  "platform": "Windows amd64",
+  "cpu": "AMD Ryzen 7 8845H",
+  "measurements": {
+    "BenchmarkSnapshot/overview": {
+      "baseline": [
+        {
+          "ns": 86355108,
+          "bytes": 35156726,
+          "allocations": 922771
+        },
+        {
+          "ns": 82959731,
+          "bytes": 35155174,
+          "allocations": 922769
+        },
+        {
+          "ns": 103420107,
+          "bytes": 35155421,
+          "allocations": 922769
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 66714407,
+          "bytes": 7675075,
+          "allocations": 762763
+        },
+        {
+          "ns": 65524444,
+          "bytes": 7674909,
+          "allocations": 762762
+        },
+        {
+          "ns": 66036512,
+          "bytes": 7674902,
+          "allocations": 762762
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 86355108,
+          "candidate": 66036512
+        },
+        "bytes": {
+          "baseline": 35155421,
+          "candidate": 7674909
+        },
+        "allocations": {
+          "baseline": 922769,
+          "candidate": 762762
+        }
+      },
+      "changePercent": {
+        "ns": -23.529118856524388,
+        "bytes": -78.16863293999523,
+        "allocations": -17.339875960289085
+      }
+    },
+    "BenchmarkSnapshot/history": {
+      "baseline": [
+        {
+          "ns": 79092357,
+          "bytes": 25856073,
+          "allocations": 602756
+        },
+        {
+          "ns": 76177567,
+          "bytes": 25856088,
+          "allocations": 602756
+        },
+        {
+          "ns": 75787333,
+          "bytes": 25856133,
+          "allocations": 602756
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 48196208,
+          "bytes": 5096541,
+          "allocations": 482751
+        },
+        {
+          "ns": 45554948,
+          "bytes": 5096175,
+          "allocations": 482750
+        },
+        {
+          "ns": 46026584,
+          "bytes": 5096335,
+          "allocations": 482751
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 76177567,
+          "candidate": 46026584
+        },
+        "bytes": {
+          "baseline": 25856088,
+          "candidate": 5096335
+        },
+        "allocations": {
+          "baseline": 602756,
+          "candidate": 482751
+        }
+      },
+      "changePercent": {
+        "ns": -39.57987132878633,
+        "bytes": -80.2896130304012,
+        "allocations": -19.909382901207117
+      }
+    },
+    "BenchmarkSnapshot/activity": {
+      "baseline": [
+        {
+          "ns": 75889236,
+          "bytes": 25229202,
+          "allocations": 502669
+        },
+        {
+          "ns": 81513571,
+          "bytes": 25229058,
+          "allocations": 502668
+        },
+        {
+          "ns": 68932106,
+          "bytes": 25228820,
+          "allocations": 502668
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 45674608,
+          "bytes": 4469572,
+          "allocations": 382659
+        },
+        {
+          "ns": 47017404,
+          "bytes": 4469701,
+          "allocations": 382659
+        },
+        {
+          "ns": 45515044,
+          "bytes": 4469656,
+          "allocations": 382659
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 75889236,
+          "candidate": 45674608
+        },
+        "bytes": {
+          "baseline": 25229058,
+          "candidate": 4469656
+        },
+        "allocations": {
+          "baseline": 502668,
+          "candidate": 382659
+        }
+      },
+      "changePercent": {
+        "ns": -39.81411540366542,
+        "bytes": -82.28369842425349,
+        "allocations": -23.874406168683905
+      }
+    },
+    "BenchmarkSnapshot/settings": {
+      "baseline": [
+        {
+          "ns": 10022465,
+          "bytes": 154236,
+          "allocations": 2689
+        },
+        {
+          "ns": 10168765,
+          "bytes": 154212,
+          "allocations": 2689
+        },
+        {
+          "ns": 11289616,
+          "bytes": 154194,
+          "allocations": 2689
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 9662336,
+          "bytes": 154632,
+          "allocations": 2697
+        },
+        {
+          "ns": 9599560,
+          "bytes": 154625,
+          "allocations": 2697
+        },
+        {
+          "ns": 9819785,
+          "bytes": 154645,
+          "allocations": 2697
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 10168765,
+          "candidate": 9662336
+        },
+        "bytes": {
+          "baseline": 154212,
+          "candidate": 154632
+        },
+        "allocations": {
+          "baseline": 2689,
+          "candidate": 2697
+        }
+      },
+      "changePercent": {
+        "ns": -4.980240963381489,
+        "bytes": 0.27235234612092984,
+        "allocations": 0.2975083674228385
+      }
+    },
+    "BenchmarkCostLookup/13": {
+      "baseline": [
+        {
+          "ns": 358,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 404.7,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 485.5,
+          "bytes": 368,
+          "allocations": 6
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 429.5,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 387,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 391.6,
+          "bytes": 368,
+          "allocations": 6
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 404.7,
+          "candidate": 391.6
+        },
+        "bytes": {
+          "baseline": 368,
+          "candidate": 368
+        },
+        "allocations": {
+          "baseline": 6,
+          "candidate": 6
+        }
+      },
+      "changePercent": {
+        "ns": -3.236965653570534,
+        "bytes": 0,
+        "allocations": 0
+      }
+    },
+    "BenchmarkCostLookup/1000": {
+      "baseline": [
+        {
+          "ns": 589.2,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 671.7,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 773.6,
+          "bytes": 368,
+          "allocations": 6
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 475.7,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 505.8,
+          "bytes": 368,
+          "allocations": 6
+        },
+        {
+          "ns": 517.5,
+          "bytes": 368,
+          "allocations": 6
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 671.7,
+          "candidate": 505.8
+        },
+        "bytes": {
+          "baseline": 368,
+          "candidate": 368
+        },
+        "allocations": {
+          "baseline": 6,
+          "candidate": 6
+        }
+      },
+      "changePercent": {
+        "ns": -24.698526127735597,
+        "bytes": 0,
+        "allocations": 0
+      }
+    },
+    "BenchmarkScanLines": {
+      "baseline": [
+        {
+          "ns": 1953970,
+          "bytes": 279961,
+          "allocations": 2
+        },
+        {
+          "ns": 1756112,
+          "bytes": 279204,
+          "allocations": 2
+        },
+        {
+          "ns": 1849052,
+          "bytes": 279287,
+          "allocations": 2
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 1085517,
+          "bytes": 273405,
+          "allocations": 2
+        },
+        {
+          "ns": 1110056,
+          "bytes": 272085,
+          "allocations": 2
+        },
+        {
+          "ns": 1076624,
+          "bytes": 272150,
+          "allocations": 2
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 1849052,
+          "candidate": 1085517
+        },
+        "bytes": {
+          "baseline": 279287,
+          "candidate": 272150
+        },
+        "allocations": {
+          "baseline": 2,
+          "candidate": 2
+        }
+      },
+      "changePercent": {
+        "ns": -41.293322199700164,
+        "bytes": -2.555435806177875,
+        "allocations": 0
+      }
+    },
+    "BenchmarkReview/overview": {
+      "baseline": [
+        {
+          "ns": 145160614,
+          "bytes": 37566956,
+          "allocations": 1165853
+        },
+        {
+          "ns": 146345888,
+          "bytes": 37566207,
+          "allocations": 1165852
+        },
+        {
+          "ns": 146579038,
+          "bytes": 37566719,
+          "allocations": 1165853
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 84290542,
+          "bytes": 8966180,
+          "allocations": 845858
+        },
+        {
+          "ns": 83480471,
+          "bytes": 8965780,
+          "allocations": 845857
+        },
+        {
+          "ns": 81999308,
+          "bytes": 8965774,
+          "allocations": 845857
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 146345888,
+          "candidate": 83480471
+        },
+        "bytes": {
+          "baseline": 37566719,
+          "candidate": 8965780
+        },
+        "allocations": {
+          "baseline": 1165853,
+          "candidate": 845857
+        }
+      },
+      "changePercent": {
+        "ns": -42.95673616740089,
+        "bytes": -76.13371559012114,
+        "allocations": -27.447371152280773
+      }
+    },
+    "BenchmarkReview/activity": {
+      "baseline": [
+        {
+          "ns": 85989200,
+          "bytes": 26842735,
+          "allocations": 662948
+        },
+        {
+          "ns": 84989869,
+          "bytes": 26842804,
+          "allocations": 662948
+        },
+        {
+          "ns": 80944693,
+          "bytes": 26842757,
+          "allocations": 662948
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 52256009,
+          "bytes": 5602893,
+          "allocations": 462940
+        },
+        {
+          "ns": 51739114,
+          "bytes": 5603098,
+          "allocations": 462940
+        },
+        {
+          "ns": 52887127,
+          "bytes": 5603015,
+          "allocations": 462940
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 84989869,
+          "candidate": 52256009
+        },
+        "bytes": {
+          "baseline": 26842757,
+          "candidate": 5603015
+        },
+        "allocations": {
+          "baseline": 662948,
+          "candidate": 462940
+        }
+      },
+      "changePercent": {
+        "ns": -38.51501406597062,
+        "bytes": -79.1265293650723,
+        "allocations": -30.169485389502647
+      }
+    },
+    "BenchmarkReview/history": {
+      "baseline": [
+        {
+          "ns": 116901144,
+          "bytes": 41823607,
+          "allocations": 1168145
+        },
+        {
+          "ns": 115199767,
+          "bytes": 41823523,
+          "allocations": 1168145
+        },
+        {
+          "ns": 116702389,
+          "bytes": 41823596,
+          "allocations": 1168145
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 94393458,
+          "bytes": 9840298,
+          "allocations": 867933
+        },
+        {
+          "ns": 93740750,
+          "bytes": 9840327,
+          "allocations": 867932
+        },
+        {
+          "ns": 94159408,
+          "bytes": 9840436,
+          "allocations": 867932
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 116702389,
+          "candidate": 94159408
+        },
+        "bytes": {
+          "baseline": 41823596,
+          "candidate": 9840327
+        },
+        "allocations": {
+          "baseline": 1168145,
+          "candidate": 867932
+        }
+      },
+      "changePercent": {
+        "ns": -19.31664055309099,
+        "bytes": -76.47182944288195,
+        "allocations": -25.69997731446011
+      }
+    },
+    "BenchmarkReview/calls": {
+      "baseline": [
+        {
+          "ns": 325013200,
+          "bytes": 131069156,
+          "allocations": 2070354
+        },
+        {
+          "ns": 320550125,
+          "bytes": 131070250,
+          "allocations": 2070362
+        },
+        {
+          "ns": 324544000,
+          "bytes": 131067974,
+          "allocations": 2070354
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 232029020,
+          "bytes": 19313182,
+          "allocations": 1571158
+        },
+        {
+          "ns": 233518900,
+          "bytes": 19313102,
+          "allocations": 1571157
+        },
+        {
+          "ns": 234349740,
+          "bytes": 19313820,
+          "allocations": 1571159
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 324544000,
+          "candidate": 233518900
+        },
+        "bytes": {
+          "baseline": 131069156,
+          "candidate": 19313182
+        },
+        "allocations": {
+          "baseline": 2070354,
+          "candidate": 1571158
+        }
+      },
+      "changePercent": {
+        "ns": -28.047075281009658,
+        "bytes": -85.26489176446668,
+        "allocations": -24.111625354890997
+      }
+    },
+    "BenchmarkReview/quota": {
+      "baseline": [
+        {
+          "ns": 2598215,
+          "bytes": 24094,
+          "allocations": 499
+        },
+        {
+          "ns": 2600240,
+          "bytes": 24090,
+          "allocations": 499
+        },
+        {
+          "ns": 2746952,
+          "bytes": 24089,
+          "allocations": 499
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 2583707,
+          "bytes": 24143,
+          "allocations": 502
+        },
+        {
+          "ns": 2723432,
+          "bytes": 24149,
+          "allocations": 502
+        },
+        {
+          "ns": 2620638,
+          "bytes": 24147,
+          "allocations": 502
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 2600240,
+          "candidate": 2620638
+        },
+        "bytes": {
+          "baseline": 24090,
+          "candidate": 24147
+        },
+        "allocations": {
+          "baseline": 499,
+          "candidate": 502
+        }
+      },
+      "changePercent": {
+        "ns": 0.7844660492877686,
+        "bytes": 0.23661270236612353,
+        "allocations": 0.6012024048096087
+      }
+    },
+    "BenchmarkReview/settings": {
+      "baseline": [
+        {
+          "ns": 10490144,
+          "bytes": 160878,
+          "allocations": 2828
+        },
+        {
+          "ns": 10309642,
+          "bytes": 160912,
+          "allocations": 2828
+        },
+        {
+          "ns": 10520945,
+          "bytes": 160896,
+          "allocations": 2828
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 10759722,
+          "bytes": 161001,
+          "allocations": 2834
+        },
+        {
+          "ns": 10733018,
+          "bytes": 160965,
+          "allocations": 2834
+        },
+        {
+          "ns": 10576310,
+          "bytes": 161011,
+          "allocations": 2834
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 10490144,
+          "candidate": 10733018
+        },
+        "bytes": {
+          "baseline": 160896,
+          "candidate": 161001
+        },
+        "allocations": {
+          "baseline": 2828,
+          "candidate": 2834
+        }
+      },
+      "changePercent": {
+        "ns": 2.3152589707062132,
+        "bytes": 0.06525954653937571,
+        "allocations": 0.21216407355020284
+      }
+    },
+    "BenchmarkReview/widget": {
+      "baseline": [
+        {
+          "ns": 22694635,
+          "bytes": 8852214,
+          "allocations": 141425
+        },
+        {
+          "ns": 22009676,
+          "bytes": 8852188,
+          "allocations": 141425
+        },
+        {
+          "ns": 22096620,
+          "bytes": 8852179,
+          "allocations": 141425
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 20386208,
+          "bytes": 1370245,
+          "allocations": 101407
+        },
+        {
+          "ns": 20065274,
+          "bytes": 1370209,
+          "allocations": 101407
+        },
+        {
+          "ns": 19869418,
+          "bytes": 1370215,
+          "allocations": 101407
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 22096620,
+          "candidate": 20065274
+        },
+        "bytes": {
+          "baseline": 8852188,
+          "candidate": 1370215
+        },
+        "allocations": {
+          "baseline": 141425,
+          "candidate": 101407
+        }
+      },
+      "changePercent": {
+        "ns": -9.193016850540946,
+        "bytes": -84.52117148890194,
+        "allocations": -28.296270107831
+      }
+    },
+    "BenchmarkReview/export": {
+      "baseline": [
+        {
+          "ns": 109152100,
+          "bytes": 64265469,
+          "allocations": 1301046
+        },
+        {
+          "ns": 109795440,
+          "bytes": 64266236,
+          "allocations": 1301052
+        },
+        {
+          "ns": 109192390,
+          "bytes": 64265252,
+          "allocations": 1301043
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 80539557,
+          "bytes": 25001833,
+          "allocations": 741057
+        },
+        {
+          "ns": 80093936,
+          "bytes": 25002319,
+          "allocations": 741058
+        },
+        {
+          "ns": 80049807,
+          "bytes": 25001801,
+          "allocations": 741056
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 109192390,
+          "candidate": 80093936
+        },
+        "bytes": {
+          "baseline": 64265469,
+          "candidate": 25001833
+        },
+        "allocations": {
+          "baseline": 1301046,
+          "candidate": 741057
+        }
+      },
+      "changePercent": {
+        "ns": -26.648793015703752,
+        "bytes": -61.09600787321726,
+        "allocations": -43.04144511416199
+      }
+    },
+    "BenchmarkReviewCallOrdering/newest": {
+      "baseline": [
+        {
+          "ns": 24400867,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 24687190,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 24718574,
+          "bytes": 761008,
+          "allocations": 23
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 1132640,
+          "bytes": 163872,
+          "allocations": 2
+        },
+        {
+          "ns": 1140527,
+          "bytes": 163872,
+          "allocations": 2
+        },
+        {
+          "ns": 1153523,
+          "bytes": 163872,
+          "allocations": 2
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 24687190,
+          "candidate": 1140527
+        },
+        "bytes": {
+          "baseline": 761008,
+          "candidate": 163872
+        },
+        "allocations": {
+          "baseline": 23,
+          "candidate": 2
+        }
+      },
+      "changePercent": {
+        "ns": -95.380085785381,
+        "bytes": -78.46645501755567,
+        "allocations": -91.30434782608697
+      }
+    },
+    "BenchmarkReviewCallOrdering/oldest": {
+      "baseline": [
+        {
+          "ns": 5480779,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 4978490,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 5790930,
+          "bytes": 761008,
+          "allocations": 23
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 281364,
+          "bytes": 163872,
+          "allocations": 2
+        },
+        {
+          "ns": 274657,
+          "bytes": 163872,
+          "allocations": 2
+        },
+        {
+          "ns": 237063,
+          "bytes": 163872,
+          "allocations": 2
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 5480779,
+          "candidate": 274657
+        },
+        "bytes": {
+          "baseline": 761008,
+          "candidate": 163872
+        },
+        "allocations": {
+          "baseline": 23,
+          "candidate": 2
+        }
+      },
+      "changePercent": {
+        "ns": -94.9887233183458,
+        "bytes": -78.46645501755567,
+        "allocations": -91.30434782608697
+      }
+    },
+    "BenchmarkReviewCallOrdering/tokens": {
+      "baseline": [
+        {
+          "ns": 60315732,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 63458100,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 64715719,
+          "bytes": 761008,
+          "allocations": 23
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 31116169,
+          "bytes": 163937,
+          "allocations": 4
+        },
+        {
+          "ns": 32250391,
+          "bytes": 163938,
+          "allocations": 4
+        },
+        {
+          "ns": 31898225,
+          "bytes": 163936,
+          "allocations": 4
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 63458100,
+          "candidate": 31898225
+        },
+        "bytes": {
+          "baseline": 761008,
+          "candidate": 163937
+        },
+        "allocations": {
+          "baseline": 23,
+          "candidate": 4
+        }
+      },
+      "changePercent": {
+        "ns": -49.733406767615165,
+        "bytes": -78.4579137144419,
+        "allocations": -82.6086956521739
+      }
+    },
+    "BenchmarkReviewCallOrdering/cost": {
+      "baseline": [
+        {
+          "ns": 67480800,
+          "bytes": 761009,
+          "allocations": 23
+        },
+        {
+          "ns": 68762694,
+          "bytes": 761009,
+          "allocations": 23
+        },
+        {
+          "ns": 66215431,
+          "bytes": 761009,
+          "allocations": 23
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 34307627,
+          "bytes": 163938,
+          "allocations": 4
+        },
+        {
+          "ns": 33684430,
+          "bytes": 163938,
+          "allocations": 4
+        },
+        {
+          "ns": 34452094,
+          "bytes": 163937,
+          "allocations": 4
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 67480800,
+          "candidate": 34307627
+        },
+        "bytes": {
+          "baseline": 761009,
+          "candidate": 163938
+        },
+        "allocations": {
+          "baseline": 23,
+          "candidate": 4
+        }
+      },
+      "changePercent": {
+        "ns": -49.15942460670294,
+        "bytes": -78.45781061722003,
+        "allocations": -82.6086956521739
+      }
+    },
+    "BenchmarkReviewCallOrdering/ttft": {
+      "baseline": [
+        {
+          "ns": 66062022,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 66323465,
+          "bytes": 761008,
+          "allocations": 23
+        },
+        {
+          "ns": 55902714,
+          "bytes": 761008,
+          "allocations": 23
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 31123971,
+          "bytes": 163938,
+          "allocations": 4
+        },
+        {
+          "ns": 33677135,
+          "bytes": 163937,
+          "allocations": 4
+        },
+        {
+          "ns": 31835408,
+          "bytes": 163937,
+          "allocations": 4
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 66062022,
+          "candidate": 31835408
+        },
+        "bytes": {
+          "baseline": 761008,
+          "candidate": 163937
+        },
+        "allocations": {
+          "baseline": 23,
+          "candidate": 4
+        }
+      },
+      "changePercent": {
+        "ns": -51.8098189607336,
+        "bytes": -78.4579137144419,
+        "allocations": -82.6086956521739
+      }
+    },
+    "BenchmarkReviewScan": {
+      "baseline": [
+        {
+          "ns": 37462345,
+          "bytes": 5084757,
+          "allocations": 99870
+        },
+        {
+          "ns": 34699340,
+          "bytes": 5082518,
+          "allocations": 99866
+        },
+        {
+          "ns": 40948636,
+          "bytes": 5078789,
+          "allocations": 99866
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 27163200,
+          "bytes": 3453778,
+          "allocations": 67850
+        },
+        {
+          "ns": 27195933,
+          "bytes": 3442557,
+          "allocations": 67843
+        },
+        {
+          "ns": 27334327,
+          "bytes": 3438817,
+          "allocations": 67841
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 37462345,
+          "candidate": 27195933
+        },
+        "bytes": {
+          "baseline": 5082518,
+          "candidate": 3442557
+        },
+        "allocations": {
+          "baseline": 99866,
+          "candidate": 67843
+        }
+      },
+      "changePercent": {
+        "ns": -27.404616555637396,
+        "bytes": -32.266703236466654,
+        "allocations": -32.06596839765285
+      }
+    },
+    "BenchmarkReviewRecovery": {
+      "baseline": [
+        {
+          "ns": 632759350,
+          "bytes": 49239504,
+          "allocations": 1179231
+        },
+        {
+          "ns": 603724450,
+          "bytes": 49238280,
+          "allocations": 1179230
+        },
+        {
+          "ns": 712726250,
+          "bytes": 49238984,
+          "allocations": 1179230
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 477542500,
+          "bytes": 48276082,
+          "allocations": 1139070
+        },
+        {
+          "ns": 460222333,
+          "bytes": 48276928,
+          "allocations": 1139071
+        },
+        {
+          "ns": 460214767,
+          "bytes": 48276914,
+          "allocations": 1139070
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 632759350,
+          "candidate": 460222333
+        },
+        "bytes": {
+          "baseline": 49238984,
+          "candidate": 48276914
+        },
+        "allocations": {
+          "baseline": 1179230,
+          "candidate": 1139070
+        }
+      },
+      "changePercent": {
+        "ns": -27.26739905147194,
+        "bytes": -1.9538786584223589,
+        "allocations": -3.4056121367332937
+      }
+    },
+    "BenchmarkWidget/visibility": {
+      "baseline": [
+        {
+          "ns": 1505,
+          "bytes": 856,
+          "allocations": 14
+        },
+        {
+          "ns": 2100,
+          "bytes": 856,
+          "allocations": 14
+        },
+        {
+          "ns": 2159,
+          "bytes": 856,
+          "allocations": 14
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 1542,
+          "bytes": 856,
+          "allocations": 14
+        },
+        {
+          "ns": 1489,
+          "bytes": 856,
+          "allocations": 14
+        },
+        {
+          "ns": 1543,
+          "bytes": 856,
+          "allocations": 14
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 2100,
+          "candidate": 1542
+        },
+        "bytes": {
+          "baseline": 856,
+          "candidate": 856
+        },
+        "allocations": {
+          "baseline": 14,
+          "candidate": 14
+        }
+      },
+      "changePercent": {
+        "ns": -26.57142857142857,
+        "bytes": 0,
+        "allocations": 0
+      }
+    },
+    "BenchmarkWidget/morph": {
+      "baseline": [
+        {
+          "ns": 23220412,
+          "bytes": 2923154,
+          "allocations": 23
+        },
+        {
+          "ns": 24320367,
+          "bytes": 3142586,
+          "allocations": 24
+        },
+        {
+          "ns": 24057586,
+          "bytes": 3142588,
+          "allocations": 24
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 17520610,
+          "bytes": 2748787,
+          "allocations": 23
+        },
+        {
+          "ns": 17183392,
+          "bytes": 2775287,
+          "allocations": 23
+        },
+        {
+          "ns": 17148605,
+          "bytes": 2669203,
+          "allocations": 23
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 24057586,
+          "candidate": 17183392
+        },
+        "bytes": {
+          "baseline": 3142586,
+          "candidate": 2748787
+        },
+        "allocations": {
+          "baseline": 24,
+          "candidate": 23
+        }
+      },
+      "changePercent": {
+        "ns": -28.5739142738594,
+        "bytes": -12.531049269614257,
+        "allocations": -4.1666666666666625
+      }
+    },
+    "BenchmarkWidget/hover": {
+      "baseline": [
+        {
+          "ns": 30986095,
+          "bytes": 5001056,
+          "allocations": 171
+        },
+        {
+          "ns": 31755534,
+          "bytes": 5012298,
+          "allocations": 172
+        },
+        {
+          "ns": 31189451,
+          "bytes": 5013098,
+          "allocations": 172
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 24729593,
+          "bytes": 5007245,
+          "allocations": 171
+        },
+        {
+          "ns": 25829702,
+          "bytes": 5006245,
+          "allocations": 172
+        },
+        {
+          "ns": 25327857,
+          "bytes": 4997999,
+          "allocations": 172
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 31189451,
+          "candidate": 25327857
+        },
+        "bytes": {
+          "baseline": 5012298,
+          "candidate": 5006245
+        },
+        "allocations": {
+          "baseline": 172,
+          "candidate": 172
+        }
+      },
+      "changePercent": {
+        "ns": -18.793514512326613,
+        "bytes": -0.12076297139556047,
+        "allocations": 0
+      }
+    },
+    "BenchmarkWidgetBlur": {
+      "baseline": [
+        {
+          "ns": 8.437,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 8.014,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 7.69,
+          "bytes": 0,
+          "allocations": 0
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 6.593,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 6.249,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 6.179,
+          "bytes": 0,
+          "allocations": 0
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 8.014,
+          "candidate": 6.249
+        },
+        "bytes": {
+          "baseline": 0,
+          "candidate": 0
+        },
+        "allocations": {
+          "baseline": 0,
+          "candidate": 0
+        }
+      },
+      "changePercent": {
+        "ns": -22.023958073371595,
+        "bytes": 0,
+        "allocations": 0
+      }
+    },
+    "BenchmarkWidgetBlurUncached": {
+      "baseline": [
+        {
+          "ns": 32878297,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 28981846,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 24678636,
+          "bytes": 0,
+          "allocations": 0
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 23530200,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 23694080,
+          "bytes": 0,
+          "allocations": 0
+        },
+        {
+          "ns": 23250027,
+          "bytes": 0,
+          "allocations": 0
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 28981846,
+          "candidate": 23530200
+        },
+        "bytes": {
+          "baseline": 0,
+          "candidate": 0
+        },
+        "allocations": {
+          "baseline": 0,
+          "candidate": 0
+        }
+      },
+      "changePercent": {
+        "ns": -18.81055471759805,
+        "bytes": 0,
+        "allocations": 0
+      }
+    },
+    "BenchmarkMainVisibility": {
+      "baseline": [
+        {
+          "ns": 808909,
+          "bytes": 138253,
+          "allocations": 2475
+        },
+        {
+          "ns": 895662,
+          "bytes": 136262,
+          "allocations": 2439
+        },
+        {
+          "ns": 1105351,
+          "bytes": 135380,
+          "allocations": 2424
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 809046,
+          "bytes": 125684,
+          "allocations": 2488
+        },
+        {
+          "ns": 784329,
+          "bytes": 123282,
+          "allocations": 2441
+        },
+        {
+          "ns": 822239,
+          "bytes": 125647,
+          "allocations": 2488
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 895662,
+          "candidate": 809046
+        },
+        "bytes": {
+          "baseline": 136262,
+          "candidate": 125647
+        },
+        "allocations": {
+          "baseline": 2439,
+          "candidate": 2488
+        }
+      },
+      "changePercent": {
+        "ns": -9.670612351534391,
+        "bytes": -7.790139584036638,
+        "allocations": 2.009020090200897
+      }
+    },
+    "BenchmarkReviewClient/overview": {
+      "baseline": [
+        {
+          "ns": 2604097,
+          "bytes": 848342,
+          "allocations": 20223
+        },
+        {
+          "ns": 2686845,
+          "bytes": 848533,
+          "allocations": 20222
+        },
+        {
+          "ns": 2562593,
+          "bytes": 849066,
+          "allocations": 20225
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 2143420,
+          "bytes": 449690,
+          "allocations": 13154
+        },
+        {
+          "ns": 1871388,
+          "bytes": 449665,
+          "allocations": 13154
+        },
+        {
+          "ns": 1788393,
+          "bytes": 449620,
+          "allocations": 13154
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 2604097,
+          "candidate": 1871388
+        },
+        "bytes": {
+          "baseline": 848533,
+          "candidate": 449665
+        },
+        "allocations": {
+          "baseline": 20223,
+          "candidate": 13154
+        }
+      },
+      "changePercent": {
+        "ns": -28.13677831509348,
+        "bytes": -47.00677522264897,
+        "allocations": -34.95524897394057
+      }
+    },
+    "BenchmarkReviewClient/history": {
+      "baseline": [
+        {
+          "ns": 3318835,
+          "bytes": 1180898,
+          "allocations": 23613
+        },
+        {
+          "ns": 3353234,
+          "bytes": 1182990,
+          "allocations": 23615
+        },
+        {
+          "ns": 3290340,
+          "bytes": 1181976,
+          "allocations": 23615
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 2079752,
+          "bytes": 575499,
+          "allocations": 13187
+        },
+        {
+          "ns": 2063501,
+          "bytes": 575568,
+          "allocations": 13187
+        },
+        {
+          "ns": 2058033,
+          "bytes": 575513,
+          "allocations": 13187
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 3318835,
+          "candidate": 2063501
+        },
+        "bytes": {
+          "baseline": 1181976,
+          "candidate": 575513
+        },
+        "allocations": {
+          "baseline": 23615,
+          "candidate": 13187
+        }
+      },
+      "changePercent": {
+        "ns": -37.824537827279755,
+        "bytes": -51.30924824192709,
+        "allocations": -44.158373914884606
+      }
+    },
+    "BenchmarkReviewClient/calls": {
+      "baseline": [
+        {
+          "ns": 6211398,
+          "bytes": 2508097,
+          "allocations": 38655
+        },
+        {
+          "ns": 5923349,
+          "bytes": 2500696,
+          "allocations": 38649
+        },
+        {
+          "ns": 6035205,
+          "bytes": 2505429,
+          "allocations": 38652
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 3597839,
+          "bytes": 915813,
+          "allocations": 19861
+        },
+        {
+          "ns": 3605553,
+          "bytes": 915933,
+          "allocations": 19861
+        },
+        {
+          "ns": 3448794,
+          "bytes": 915877,
+          "allocations": 19861
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 6035205,
+          "candidate": 3597839
+        },
+        "bytes": {
+          "baseline": 2505429,
+          "candidate": 915877
+        },
+        "allocations": {
+          "baseline": 38652,
+          "candidate": 19861
+        }
+      },
+      "changePercent": {
+        "ns": -40.38580296775337,
+        "bytes": -63.44430434867642,
+        "allocations": -48.615854289558115
+      }
+    },
+    "BenchmarkReviewClient/widget": {
+      "baseline": [
+        {
+          "ns": 364440,
+          "bytes": 134231,
+          "allocations": 2792
+        },
+        {
+          "ns": 361365,
+          "bytes": 134310,
+          "allocations": 2793
+        },
+        {
+          "ns": 365764,
+          "bytes": 134262,
+          "allocations": 2792
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 165837,
+          "bytes": 55618,
+          "allocations": 700
+        },
+        {
+          "ns": 170410,
+          "bytes": 55615,
+          "allocations": 700
+        },
+        {
+          "ns": 167528,
+          "bytes": 55620,
+          "allocations": 700
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 364440,
+          "candidate": 167528
+        },
+        "bytes": {
+          "baseline": 134262,
+          "candidate": 55618
+        },
+        "allocations": {
+          "baseline": 2792,
+          "candidate": 700
+        }
+      },
+      "changePercent": {
+        "ns": -54.03139062671496,
+        "bytes": -58.575024951214786,
+        "allocations": -74.92836676217765
+      }
+    },
+    "BenchmarkReviewChartSegments": {
+      "baseline": [
+        {
+          "ns": 1124190,
+          "bytes": 2445459,
+          "allocations": 225
+        },
+        {
+          "ns": 952108,
+          "bytes": 2445462,
+          "allocations": 225
+        },
+        {
+          "ns": 1083063,
+          "bytes": 2445462,
+          "allocations": 225
+        }
+      ],
+      "candidate": [
+        {
+          "ns": 24526,
+          "bytes": 1616,
+          "allocations": 5
+        },
+        {
+          "ns": 24823,
+          "bytes": 1616,
+          "allocations": 5
+        },
+        {
+          "ns": 25130,
+          "bytes": 1616,
+          "allocations": 5
+        }
+      ],
+      "medians": {
+        "ns": {
+          "baseline": 1083063,
+          "candidate": 24823
+        },
+        "bytes": {
+          "baseline": 2445462,
+          "candidate": 1616
+        },
+        "allocations": {
+          "baseline": 225,
+          "candidate": 5
+        }
+      },
+      "changePercent": {
+        "ns": -97.7080742302156,
+        "bytes": -99.93391841705167,
+        "allocations": -97.77777777777777
+      }
+    }
+  },
+  "memory": {
+    "fivePages": {
+      "scenario": "Same synthetic 20,000-call database; five real native pages, card/orb interactions and window switching; offline.",
+      "samplingIntervalMs": 100,
+      "runs": [
+        {
+          "build": "baseline",
+          "round": 1,
+          "durationMs": 16997,
+          "sampledPeakPrivateBytes": 315346944,
+          "peakWorkingSetBytes": 296067072,
+          "cpuMs": 7562.5,
+          "sampleCount": 140
+        },
+        {
+          "build": "candidate",
+          "round": 1,
+          "durationMs": 16773,
+          "sampledPeakPrivateBytes": 324546560,
+          "peakWorkingSetBytes": 299888640,
+          "cpuMs": 7500,
+          "sampleCount": 138
+        },
+        {
+          "build": "candidate",
+          "round": 2,
+          "durationMs": 16869,
+          "sampledPeakPrivateBytes": 316211200,
+          "peakWorkingSetBytes": 290320384,
+          "cpuMs": 7390.625,
+          "sampleCount": 138
+        },
+        {
+          "build": "baseline",
+          "round": 2,
+          "durationMs": 17011,
+          "sampledPeakPrivateBytes": 315990016,
+          "peakWorkingSetBytes": 294133760,
+          "cpuMs": 7687.5,
+          "sampleCount": 139
+        },
+        {
+          "build": "baseline",
+          "round": 3,
+          "durationMs": 17099,
+          "sampledPeakPrivateBytes": 337891328,
+          "peakWorkingSetBytes": 313978880,
+          "cpuMs": 7765.625,
+          "sampleCount": 140
+        },
+        {
+          "build": "candidate",
+          "round": 3,
+          "durationMs": 16939,
+          "sampledPeakPrivateBytes": 322396160,
+          "peakWorkingSetBytes": 300478464,
+          "cpuMs": 7531.25,
+          "sampleCount": 139
+        }
+      ],
+      "medians": {
+        "sampledPeakPrivateBytes": {
+          "baseline": 315990016,
+          "candidate": 322396160,
+          "changePercent": 2.02732481269281
+        },
+        "peakWorkingSetBytes": {
+          "baseline": 296067072,
+          "candidate": 299888640,
+          "changePercent": 1.2907777870009074
+        },
+        "cpuMs": {
+          "baseline": 7687.5,
+          "candidate": 7500,
+          "changePercent": -2.4390243902439046
+        }
+      }
+    },
+    "fullHistory": {
+      "scenario": "Same synthetic 20,000-call database; five real native pages plus all-history calls, card/orb interactions and window switching; offline.",
+      "samplingIntervalMs": 100,
+      "runs": [
+        {
+          "build": "baseline",
+          "round": 1,
+          "durationMs": 18300,
+          "sampledPeakPrivateBytes": 331468800,
+          "peakWorkingSetBytes": 309067776,
+          "cpuMs": 8484.375,
+          "sampleCount": 150
+        },
+        {
+          "build": "candidate",
+          "round": 1,
+          "durationMs": 18233,
+          "sampledPeakPrivateBytes": 325390336,
+          "peakWorkingSetBytes": 300752896,
+          "cpuMs": 8265.625,
+          "sampleCount": 150
+        },
+        {
+          "build": "candidate",
+          "round": 2,
+          "durationMs": 18051,
+          "sampledPeakPrivateBytes": 348827648,
+          "peakWorkingSetBytes": 325292032,
+          "cpuMs": 8187.5,
+          "sampleCount": 148
+        },
+        {
+          "build": "baseline",
+          "round": 2,
+          "durationMs": 18075,
+          "sampledPeakPrivateBytes": 319647744,
+          "peakWorkingSetBytes": 298999808,
+          "cpuMs": 8343.75,
+          "sampleCount": 149
+        },
+        {
+          "build": "baseline",
+          "round": 3,
+          "durationMs": 18122,
+          "sampledPeakPrivateBytes": 317804544,
+          "peakWorkingSetBytes": 296329216,
+          "cpuMs": 8546.875,
+          "sampleCount": 150
+        },
+        {
+          "build": "candidate",
+          "round": 3,
+          "durationMs": 17944,
+          "sampledPeakPrivateBytes": 328839168,
+          "peakWorkingSetBytes": 303808512,
+          "cpuMs": 8328.125,
+          "sampleCount": 149
+        }
+      ],
+      "medians": {
+        "sampledPeakPrivateBytes": {
+          "baseline": 319647744,
+          "candidate": 328839168,
+          "changePercent": 2.875485334255945
+        },
+        "peakWorkingSetBytes": {
+          "baseline": 298999808,
+          "candidate": 303808512,
+          "changePercent": 1.6082632400887586
+        },
+        "cpuMs": {
+          "baseline": 8484.375,
+          "candidate": 8265.625,
+          "changePercent": -2.5782688766114226
+        }
+      }
+    }
+  },
+  "sizes": {
+    "installer": {
+      "baseline": 7893291,
+      "candidate": 7838608,
+      "changePercent": -0.6927782087344792
+    },
+    "executable": {
+      "baseline": 21054464,
+      "candidate": 21012480,
+      "changePercent": -0.19940664364573868
+    },
+    "updateArchive": {
+      "baseline": 9608416,
+      "candidate": 9514308,
+      "changePercent": -0.9794330303767085
+    }
+  },
+  "applicationGoLines": {
+    "baseline": 10020,
+    "candidate": 10355,
+    "netChange": 335
+  }
+}

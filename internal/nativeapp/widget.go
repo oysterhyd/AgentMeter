@@ -107,20 +107,13 @@ func (h *widgetHost) request(manual bool) {
 	go func() {
 		ctx, cancel := context.WithTimeout(h.window.context(), 2*time.Minute)
 		defer cancel()
-		var raw json.RawMessage
+		var data Object
 		var err error
 		if manual {
 			_, err = h.app.client.Call(ctx, "refresh", nil)
 		}
 		if err == nil {
-			raw, err = h.app.client.Call(ctx, "widget", nil)
-		}
-		var data Object
-		if err == nil {
-			err = json.Unmarshal(raw, &data)
-			if err == nil {
-				normalizeLists(data)
-			}
+			data, err = h.app.client.Object(ctx, "widget", nil)
 		}
 		h.app.win.Update(func() {
 			if h.closed {

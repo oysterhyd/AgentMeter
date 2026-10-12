@@ -143,35 +143,36 @@ func widgetBoxBlur(src, dst *image.RGBA, radius int, horizontal bool) {
 	if !horizontal {
 		lines, length = width, height
 	}
-	offset := func(line, at int) int {
-		if horizontal {
-			return line*src.Stride + at*4
-		}
-		return at*src.Stride + line*4
+	sourceStep, destinationStep := 4, 4
+	sourceLine, destinationLine := src.Stride, dst.Stride
+	if !horizontal {
+		sourceStep, destinationStep = src.Stride, dst.Stride
+		sourceLine, destinationLine = 4, 4
 	}
 	divisor := 2*radius + 1
 	for line := 0; line < lines; line++ {
+		sourceBase, destinationBase := line*sourceLine, line*destinationLine
 		var sum [4]int
 		for at := 0; at <= min(radius, length-1); at++ {
-			i := offset(line, at)
+			i := sourceBase + at*sourceStep
 			for c := range sum {
 				sum[c] += int(src.Pix[i+c])
 			}
 		}
 		for at := 0; at < length; at++ {
-			i := offset(line, at)
+			i := destinationBase + at*destinationStep
 			for c := range sum {
 				dst.Pix[i+c] = uint8((sum[c] + divisor/2) / divisor)
 			}
 			remove, add := at-radius, at+radius+1
 			if remove >= 0 {
-				i := offset(line, remove)
+				i := sourceBase + remove*sourceStep
 				for c := range sum {
 					sum[c] -= int(src.Pix[i+c])
 				}
 			}
 			if add < length {
-				i := offset(line, add)
+				i := sourceBase + add*sourceStep
 				for c := range sum {
 					sum[c] += int(src.Pix[i+c])
 				}

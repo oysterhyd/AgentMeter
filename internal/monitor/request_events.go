@@ -32,7 +32,7 @@ func (s *Store) recordRequestEvent(e Object) error {
 		return nil
 	}
 	ts := iso(stamp)
-	if cleared := text(s.settings()["clearedAt"]); cleared != "" && ts <= cleared {
+	if cleared := s.clearedAt(); cleared != "" && ts <= cleared {
 		return nil
 	}
 	kind := text(e["kind"])

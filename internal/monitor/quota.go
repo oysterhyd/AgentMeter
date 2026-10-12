@@ -178,7 +178,7 @@ func (s *Service) beginQuota() {
 func (s *Service) applyQuota(p Object) {
 	defer func() {
 		for _, ch := range s.refreshPending {
-			ch <- reply{data: json.RawMessage("true")}
+			ch <- reply{data: true}
 		}
 		s.refreshPending = nil
 	}()

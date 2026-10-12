@@ -53,6 +53,28 @@ func (a *App) verifyNativeWidget() {
 		h.window.key(13)
 	})
 	time.Sleep(760 * time.Millisecond)
+	// Drain real fetches and pause automatic polling while injecting the
+	// expired/disconnected scenes. A fast response must not overwrite them.
+	deadline := time.Now().Add(3 * time.Second)
+	idle := false
+	for time.Now().Before(deadline) {
+		a.updateWait(func() {
+			h := a.widget
+			h.lastPoll = time.Now().Add(time.Hour)
+			idle = !h.fetching && !h.pending
+			if idle {
+				h.tick(time.Now())
+			}
+		})
+		if idle {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !idle {
+		a.updateWait(func() { a.errorText = "原生小窗口验收等待数据刷新超时" })
+		return
+	}
 	a.updateWait(func() {
 		h := a.widget
 		checks["keyboardExpand"] = !h.model.Collapsed

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -18,11 +19,12 @@ func readObject(file string) Object {
 	return obj(v)
 }
 func claims(token string) Object {
-	parts := strings.Split(token, ".")
-	if len(parts) < 2 {
+	_, payload, ok := strings.Cut(token, ".")
+	if !ok {
 		return Object{}
 	}
-	b, e := base64.RawURLEncoding.DecodeString(parts[1])
+	payload, _, _ = strings.Cut(payload, ".")
+	b, e := base64.RawURLEncoding.DecodeString(payload)
 	if e != nil {
 		return Object{}
 	}
@@ -77,7 +79,7 @@ func piOpenAIAuth(home string) bool {
 		}
 		return false
 	}
-	if c["iss"] != "https://auth.openai.com" || !has(c["aud"], "https://api.openai.com/v1") || !has(stringsToAny(strings.Fields(text(c["scope"]))), direct) || !has(auth["scopes"], direct) {
+	if c["iss"] != "https://auth.openai.com" || !has(c["aud"], "https://api.openai.com/v1") || !slices.Contains(strings.Fields(text(c["scope"])), direct) || !has(auth["scopes"], direct) {
 		return false
 	}
 	file := filepath.Join(home, "models.json")
@@ -107,13 +109,6 @@ func piOpenAIAuth(home string) bool {
 		}
 	}
 	return true
-}
-func stringsToAny(values []string) []any {
-	out := []any{}
-	for _, v := range values {
-		out = append(out, v)
-	}
-	return out
 }
 func readPiAccount(home, provider string) Object {
 	if provider == "openai" && !piOpenAIAuth(home) {

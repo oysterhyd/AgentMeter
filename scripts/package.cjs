@@ -52,6 +52,8 @@ function nsisPath(value) {
 function compile(options = {}) {
   if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Package on Windows x64.');
   const compiler = compilerPath();
+  const dictionary = options.dictionary || 16;
+  if (![8, 16, 32].includes(dictionary)) throw new Error('Unsupported LZMA dictionary size.');
   const sourceFiles = files(bundle);
   for (const required of ['Codex Monitor Native.exe', 'icon.ico']) {
     if (!sourceFiles.includes(required)) throw new Error(`Incomplete native bundle: ${required}`);
@@ -76,6 +78,7 @@ function compile(options = {}) {
     APP_UNINSTALL_ID: options.uninstallId || '7eb26a54-5515-59fa-b127-ae9477be5900',
     APP_LOGIN_ID: options.loginId || 'Codex Monitor Native',
     APP_VERSION: version,
+    APP_COMPRESSION_DICTIONARY: dictionary,
     APP_SIZE_KB: Math.ceil(sourceFiles.reduce((sum, file) => sum + fs.statSync(path.join(bundle, file)).size, 0) / 1024),
     BUNDLE_DIR: bundle,
     INSTALLER_FILE: output,

@@ -2,7 +2,6 @@ package nativeapp
 
 import (
 	"context"
-	"encoding/json"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -79,14 +78,10 @@ func TestNativeTaskCallsShowWholeTaskSharesAndTiming(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	b, err := client.Call(context.Background(), "snapshot", Object{"page": "history", "range": "all", "detailSession": "native-session-4", "detailTurn": "native-turn-040"})
+	a.data, err = client.Object(context.Background(), "snapshot", Object{"page": "history", "range": "all", "detailSession": "native-session-4", "detailTurn": "native-turn-040"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = json.Unmarshal(b, &a.data); err != nil {
-		t.Fatal(err)
-	}
-	normalizeLists(a.data)
 	d := obj(a.data["callDetails"])
 	if len(objects(d["rows"])) != 6 {
 		t.Fatal(d)

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type Object map[string]any
+type Object = map[string]any
 
 func shortNumber(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".")
@@ -45,9 +45,6 @@ func obj(v any) Object {
 	if o, ok := v.(map[string]any); ok {
 		return o
 	}
-	if o, ok := v.(Object); ok {
-		return o
-	}
 	return Object{}
 }
 func objects(v any) []Object {
@@ -80,6 +77,10 @@ func normalizeLists(o Object) {
 		switch value := value.(type) {
 		case map[string]any:
 			normalizeLists(Object(value))
+		case []Object:
+			for _, row := range value {
+				normalizeLists(row)
+			}
 		case []any:
 			if len(value) == 0 {
 				continue

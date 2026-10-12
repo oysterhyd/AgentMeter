@@ -51,22 +51,36 @@ func indexPrices(prices []Object) priceIndex {
 	}
 	return index
 }
-func (index priceIndex) cost(r Object) Object {
+func (index priceIndex) calculate(r Object) usageCost {
 	prices, ts := index[text(r["model"])], text(r["ts"])
 	i := sort.Search(len(prices), func(i int) bool { return text(prices[i]["effective"]) <= ts })
 	if i < len(prices) {
-		return pricedCost(r, prices[i])
+		return calculateCost(r, prices[i])
 	}
-	return pricedCost(r, nil)
+	return usageCost{}
 }
-func pricedCost(r, p Object) Object {
-	if p != nil {
-		plain := math.Max(0, num(r["input"])-num(r["cached"])-num(r["cache_write"]))
-		in := plain*num(p["input"]) + num(r["cached"])*num(p["cached"]) + num(r["cache_write"])*num(p["cache_write"])
-		out := num(r["output"]) * num(p["output"])
-		return Object{"inputCost": in / 1e6, "outputCost": out / 1e6, "cost": (in + out) / 1e6, "saved": num(r["cached"]) * (num(p["input"]) - num(p["cached"])) / 1e6, "priceId": p["id"]}
+
+type usageCost struct {
+	input, output, total, saved float64
+	price                       Object
+}
+
+func calculateCost(r, p Object) usageCost {
+	if p == nil {
+		return usageCost{}
 	}
-	return Object{"inputCost": nil, "outputCost": nil, "cost": nil, "saved": nil, "priceId": nil}
+	plain := math.Max(0, num(r["input"])-num(r["cached"])-num(r["cache_write"]))
+	in := plain*num(p["input"]) + num(r["cached"])*num(p["cached"]) + num(r["cache_write"])*num(p["cache_write"])
+	out := num(r["output"]) * num(p["output"])
+	return usageCost{in / 1e6, out / 1e6, (in + out) / 1e6, num(r["cached"]) * (num(p["input"]) - num(p["cached"])) / 1e6, p}
+}
+
+func (p usageCost) write(r Object) {
+	if p.price == nil {
+		r["inputCost"], r["outputCost"], r["cost"], r["saved"], r["priceId"] = nil, nil, nil, nil, nil
+		return
+	}
+	r["inputCost"], r["outputCost"], r["cost"], r["saved"], r["priceId"] = p.input, p.output, p.total, p.saved, p.price["id"]
 }
 func addNumbers(to, from Object, keys ...string) {
 	for _, k := range keys {
@@ -85,13 +99,15 @@ func finishTotals(t Object) Object {
 	}
 	return t
 }
-func addTotal(t, r, p Object) {
+func addTotal(t, r Object, p usageCost) {
 	t["requests"] = num(t["requests"]) + 1
 	addNumbers(t, r, "input", "cached", "output")
-	if p["cost"] == nil {
+	if p.price == nil {
 		t["unpriced"] = num(t["unpriced"]) + 1
 	} else {
-		addNumbers(t, p, "inputCost", "outputCost", "cost")
+		t["inputCost"] = num(t["inputCost"]) + p.input
+		t["outputCost"] = num(t["outputCost"]) + p.output
+		t["cost"] = num(t["cost"]) + p.total
 	}
 }
 func matches(t Object, project any, search string) bool {
@@ -112,7 +128,7 @@ type ranking struct {
 }
 
 func newRanking() *ranking { return &ranking{byKey: map[string]Object{}, order: []Object{}} }
-func (r *ranking) add(key string, u, p Object) {
+func (r *ranking) add(key string, u Object, p usageCost) {
 	v := r.byKey[key]
 	if v == nil {
 		v = emptyRank(key)
@@ -121,9 +137,9 @@ func (r *ranking) add(key string, u, p Object) {
 	}
 	v["total"] = num(v["total"]) + num(u["input"]) + num(u["output"])
 	addNumbers(v, u, "input", "output", "cached")
-	v["cost"] = num(v["cost"]) + num(p["cost"])
+	v["cost"] = num(v["cost"]) + p.total
 	v["requests"] = num(v["requests"]) + 1
-	if p["cost"] == nil {
+	if p.price == nil {
 		v["unpriced"] = num(v["unpriced"]) + 1
 	}
 }
@@ -148,6 +164,36 @@ func projectOf(sessions map[string]Object, id any) string {
 		p = UnassignedProject
 	}
 	return p
+}
+
+type turnTotals struct {
+	totals Object
+	models map[string]Object
+	order  []Object
+}
+
+func newTurnTotals() *turnTotals {
+	return &turnTotals{totals: emptyTotals(), models: map[string]Object{}, order: []Object{}}
+}
+
+func (t *turnTotals) add(u Object, p usageCost) {
+	addTotal(t.totals, u, p)
+	key := text(u["model"])
+	if t.models[key] == nil {
+		v := emptyTotals()
+		v["model"] = u["model"]
+		t.models[key] = v
+		t.order = append(t.order, v)
+	}
+	addTotal(t.models[key], u, p)
+}
+
+func usageFrom(f Object) string {
+	from := "FROM usage u"
+	if truth(f["project"]) {
+		from += " LEFT JOIN sessions s ON s.id=u.session"
+	}
+	return from
 }
 func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	f := s.resolve(input)
@@ -243,9 +289,8 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 			params = append(params, f[pair[0]])
 		}
 	}
-	usage, turns := []Object{}, []Object{}
+	turns := []Object{}
 	if analytics {
-		usage = s.mustQuery("SELECT u.* FROM usage u LEFT JOIN sessions s ON s.id=u.session WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params...)
 		tc := []string{"t.started>=?", "t.started<?"}
 		tp := []any{lo, hi}
 		for _, k := range []string{"account", "model"} {
@@ -267,35 +312,53 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	sums := Object{"input": 0., "cached": 0., "output": 0., "reasoning": 0., "cache_write": 0., "cost": 0., "saved": 0., "unpriced": 0., "requests": 0., "legacyRequests": 0.}
 	maps := map[string]*ranking{"models": newRanking(), "projects": newRanking(), "tasks": newRanking(), "timeline": newRanking()}
 	hourly := !truth(f["range"]) || f["range"] == "today"
-	for _, u := range usage {
-		p := pricing.cost(u)
-		sums["requests"] = num(sums["requests"]) + 1
-		if u["kind"] != "逐次记录" && u["kind"] != PiKind && u["kind"] != PiOpenAIKind {
-			sums["legacyRequests"] = num(sums["legacyRequests"]) + 1
+	var calendar *activityAccumulator
+	reuseActivity := false
+	if has("all", "overview", "activity") {
+		calendar = s.newActivity(f, now)
+		activityStart, activityEnd := activityBounds(f, now)
+		local := now.In(time.Local)
+		tomorrow := time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, time.Local)
+		if activityEnd.After(tomorrow) {
+			activityEnd = tomorrow
 		}
-		addNumbers(sums, u, "input", "cached", "output", "reasoning", "cache_write")
-		if p["cost"] == nil {
-			sums["unpriced"] = num(sums["unpriced"]) + 1
-		} else {
-			addNumbers(sums, p, "cost", "saved")
-		}
-		for _, v := range views {
-			key := text(u["model"])
-			if v == "projects" {
-				key = projectOf(sessions, u["session"])
+		reuseActivity = analytics && !start.After(activityStart) && !end.Before(activityEnd)
+	}
+	if analytics {
+		s.each("SELECT u.* "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
+			p := pricing.calculate(u)
+			if reuseActivity {
+				calendar.add(u, p)
 			}
-			if v == "tasks" {
-				key = text(u["session"])
+			sums["requests"] = num(sums["requests"]) + 1
+			if u["kind"] != "逐次记录" && u["kind"] != PiKind && u["kind"] != PiOpenAIKind {
+				sums["legacyRequests"] = num(sums["legacyRequests"]) + 1
 			}
-			maps[v].add(key, u, p)
-		}
-		if has("all", "overview") {
-			format := "2006-01-02"
-			if hourly {
-				format += " 15:00"
+			addNumbers(sums, u, "input", "cached", "output", "reasoning", "cache_write")
+			if p.price == nil {
+				sums["unpriced"] = num(sums["unpriced"]) + 1
+			} else {
+				sums["cost"] = num(sums["cost"]) + p.total
+				sums["saved"] = num(sums["saved"]) + p.saved
 			}
-			maps["timeline"].add(parse(u["ts"]).In(time.Local).Format(format), u, p)
-		}
+			for _, v := range views {
+				key := text(u["model"])
+				if v == "projects" {
+					key = projectOf(sessions, u["session"])
+				}
+				if v == "tasks" {
+					key = text(u["session"])
+				}
+				maps[v].add(key, u, p)
+			}
+			if has("all", "overview") {
+				format := "2006-01-02"
+				if hourly {
+					format += " 15:00"
+				}
+				maps["timeline"].add(parse(u["ts"]).In(time.Local).Format(format), u, p)
+			}
+		})
 	}
 	completed, failed, aborted := 0, 0, 0
 	timed, latency := []Object{}, []Object{}
@@ -329,7 +392,7 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	recordPage := min(requested, pages)
 	begin := min(len(recordTurns), (recordPage-1)*pageSize)
 	chosen := recordTurns[begin:min(len(recordTurns), begin+pageSize)]
-	byTurn := map[string][]Object{}
+	byTurn := map[string]*turnTotals{}
 	outputByTurn := map[string]float64{}
 	if analytics {
 		q := "SELECT t.id, COALESCE(SUM(u.output),0) output FROM turns t LEFT JOIN usage u ON u.turn=t.id AND u.session=t.session "
@@ -350,38 +413,31 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 			ids = append(ids, t["id"])
 			marks = append(marks, "?")
 		}
-		for _, r := range s.mustQuery("SELECT u.* FROM usage u JOIN turns t ON t.id=u.turn AND t.session=u.session WHERE t.id IN ("+strings.Join(marks, ",")+") ORDER BY u.ts", ids...) {
+		s.each("SELECT u.* FROM usage u JOIN turns t ON t.id=u.turn AND t.session=u.session WHERE t.id IN ("+strings.Join(marks, ",")+") ORDER BY u.ts", ids, func(r Object) {
 			if truth(f["account"]) && r["account"] != f["account"] {
-				continue
+				return
 			}
-			byTurn[text(r["turn"])] = append(byTurn[text(r["turn"])], r)
-		}
+			key := text(r["turn"])
+			if byTurn[key] == nil {
+				byTurn[key] = newTurnTotals()
+			}
+			byTurn[key].add(r, pricing.calculate(r))
+		})
 	}
 	records := []Object{}
 	for _, t := range chosen {
 		r := clone(t)
-		totals := emptyTotals()
-		modelRows := []Object{}
-		models := map[string]Object{}
-		for _, u := range byTurn[text(t["id"])] {
-			p := pricing.cost(u)
-			addTotal(totals, u, p)
-			key := text(u["model"])
-			if models[key] == nil {
-				v := emptyTotals()
-				v["model"] = u["model"]
-				models[key] = v
-				modelRows = append(modelRows, v)
-			}
-			addTotal(models[key], u, p)
+		totals := byTurn[text(t["id"])]
+		if totals == nil {
+			totals = newTurnTotals()
 		}
-		for k, v := range finishTotals(totals) {
+		for k, v := range finishTotals(totals.totals) {
 			r[k] = v
 		}
-		for _, m := range modelRows {
+		for _, m := range totals.order {
 			finishTotals(m)
 		}
-		r["models"] = modelRows
+		r["models"] = totals.order
 		r["project"] = projectOf(sessions, t["session"])
 		r["source"] = sessions[text(t["session"])]["source"]
 		r["origin"] = sessions[text(t["session"])]["origin"]
@@ -501,20 +557,11 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 		options["sessions"] = v
 	}
 	var activity any
-	if has("all", "overview", "activity") {
-		var loaded []Object
-		activityStart, activityEnd := activityBounds(f, now)
-		// Activity ignores future calendar days. Reuse the analytics rows
-		// when their bounds cover every day it could display.
-		local := now.In(time.Local)
-		tomorrow := time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, time.Local)
-		if activityEnd.After(tomorrow) {
-			activityEnd = tomorrow
+	if calendar != nil {
+		if !reuseActivity {
+			s.each(calendar.query, calendar.args, func(u Object) { calendar.add(u, pricing.calculate(u)) })
 		}
-		if analytics && !start.After(activityStart) && !end.Before(activityEnd) {
-			loaded = usage
-		}
-		activity = s.activity(f, pricing, now, loaded)
+		activity = calendar.result()
 	}
 	var status any
 	if q := obj(s.get("quotaStatus")); q["account"] == account {
@@ -619,26 +666,15 @@ func (s *Store) Export(f Object, now time.Time) (string, error) {
 		join = " AND s.project=?"
 		params = append([]any{f["project"]}, params...)
 	}
-	rows := s.mustQuery("SELECT u.*,s.project,s.source,s.origin,t.id record_id,t.session record_session,t.model record_model FROM usage u LEFT JOIN sessions s ON s.id=u.session"+join+" LEFT JOIN turns t ON t.id=u.turn AND t.session=u.session WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params...)
 	pricing := indexPrices(s.prices())
 	cols := []string{"ts", "model", "session", "turn", "input", "cached", "output", "reasoning", "cache_write", "cost", "saved", "priceId", "kind", "account", "source", "origin"}
-	lines := []string{strings.Join(cols, ",")}
-	for _, r := range rows {
+	b := newCSV(cols)
+	s.each("SELECT u.*,s.project,s.source,s.origin,t.id record_id,t.session record_session,t.model record_model FROM usage u LEFT JOIN sessions s ON s.id=u.session"+join+" LEFT JOIN turns t ON t.id=u.turn AND t.session=u.session WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(r Object) {
 		if !matches(Object{"id": r["record_id"], "session": r["record_session"], "model": r["record_model"]}, r["project"], search) {
-			continue
+			return
 		}
-		for k, v := range pricing.cost(r) {
-			r[k] = v
-		}
-		cells := []string{}
-		for _, k := range cols {
-			v := text(r[k])
-			if v != "" && strings.ContainsRune("=+@-\t\r", rune(v[0])) {
-				v = "'" + v
-			}
-			cells = append(cells, "\""+strings.ReplaceAll(v, "\"", "\"\"")+"\"")
-		}
-		lines = append(lines, strings.Join(cells, ","))
-	}
-	return "\uFEFF" + strings.Join(lines, "\r\n"), nil
+		pricing.calculate(r).write(r)
+		b.row(r)
+	})
+	return b.String(), nil
 }

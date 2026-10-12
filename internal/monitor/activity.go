@@ -16,7 +16,20 @@ func activityBounds(f Object, now time.Time) (time.Time, time.Time) {
 	return start, end
 }
 
-func (s *Store) activity(f Object, pricing priceIndex, now time.Time, rows []Object) Object {
+type activityAccumulator struct {
+	now           time.Time
+	year          int
+	lo, hi, today string
+	first         any
+	days          map[string]Object
+	order, hours  []Object
+	members       map[string]map[string]bool
+	sessions      map[string]bool
+	query         string
+	args          []any
+}
+
+func (s *Store) newActivity(f Object, now time.Time) *activityAccumulator {
 	now = now.In(time.Local)
 	start, end := activityBounds(f, now)
 	year := start.Year()
@@ -28,61 +41,70 @@ func (s *Store) activity(f Object, pricing priceIndex, now time.Time, rows []Obj
 			values = append(values, f[p[0]])
 		}
 	}
-	join := "FROM usage u LEFT JOIN sessions s ON s.id=u.session"
+	join := usageFrom(f)
 	first := s.mustOne("SELECT MIN(u.ts) first "+join+" WHERE 1=1"+where, values...)["first"]
-	days := map[string]Object{}
-	order := []Object{}
-	members := map[string]map[string]bool{}
-	sessions := map[string]bool{}
-	hours := []Object{}
+	a := &activityAccumulator{now: now, year: year, lo: iso(start), hi: iso(end), today: now.Format("2006-01-02"), first: first,
+		days: map[string]Object{}, order: []Object{}, members: map[string]map[string]bool{}, sessions: map[string]bool{}, hours: make([]Object, 24)}
 	for h := 0; h < 24; h++ {
-		hours = append(hours, Object{"hour": h, "total": 0., "requests": 0.})
+		a.hours[h] = Object{"hour": h, "total": 0., "requests": 0.}
 	}
-	today := now.Format("2006-01-02")
-	args := append([]any{iso(start), iso(end)}, values...)
+	a.args = append([]any{a.lo, a.hi}, values...)
+	a.query = "SELECT u.* " + join + " WHERE u.ts>=? AND u.ts<?" + where + " ORDER BY u.ts"
+	return a
+}
+
+func (s *Store) activity(f Object, pricing priceIndex, now time.Time, rows []Object) Object {
+	a := s.newActivity(f, now)
 	if rows == nil {
-		rows = s.mustQuery("SELECT u.* "+join+" WHERE u.ts>=? AND u.ts<?"+where+" ORDER BY u.ts", args...)
+		s.each(a.query, a.args, func(u Object) { a.add(u, pricing.calculate(u)) })
+	} else {
+		for _, u := range rows {
+			a.add(u, pricing.calculate(u))
+		}
 	}
-	lo, hi := iso(start), iso(end)
-	for _, u := range rows {
-		if ts := text(u["ts"]); ts < lo || ts >= hi {
-			continue
-		}
-		t := parse(u["ts"]).In(time.Local)
-		key := t.Format("2006-01-02")
-		if key > today {
-			continue
-		}
-		day := days[key]
-		if day == nil {
-			day = Object{"date": key, "total": 0., "output": 0., "requests": 0., "cost": 0., "unpriced": 0.}
-			days[key] = day
-			order = append(order, day)
-			members[key] = map[string]bool{}
-		}
-		p := pricing.cost(u)
-		tokens := num(u["input"]) + num(u["output"])
-		day["total"] = num(day["total"]) + tokens
-		day["output"] = num(day["output"]) + num(u["output"])
-		day["requests"] = num(day["requests"]) + 1
-		if p["cost"] == nil {
-			day["unpriced"] = num(day["unpriced"]) + 1
-		} else {
-			day["cost"] = num(day["cost"]) + num(p["cost"])
-		}
-		members[key][text(u["session"])] = true
-		sessions[text(u["session"])] = true
-		h := hours[t.Hour()]
-		h["total"] = num(h["total"]) + tokens
-		h["requests"] = num(h["requests"]) + 1
+	return a.result()
+}
+
+func (a *activityAccumulator) add(u Object, p usageCost) {
+	if ts := text(u["ts"]); ts < a.lo || ts >= a.hi {
+		return
 	}
+	t := parse(u["ts"]).In(time.Local)
+	key := t.Format("2006-01-02")
+	if key > a.today {
+		return
+	}
+	day := a.days[key]
+	if day == nil {
+		day = Object{"date": key, "total": 0., "output": 0., "requests": 0., "cost": 0., "unpriced": 0.}
+		a.days[key] = day
+		a.order = append(a.order, day)
+		a.members[key] = map[string]bool{}
+	}
+	tokens := num(u["input"]) + num(u["output"])
+	day["total"] = num(day["total"]) + tokens
+	day["output"] = num(day["output"]) + num(u["output"])
+	day["requests"] = num(day["requests"]) + 1
+	if p.price == nil {
+		day["unpriced"] = num(day["unpriced"]) + 1
+	} else {
+		day["cost"] = num(day["cost"]) + p.total
+	}
+	a.members[key][text(u["session"])] = true
+	a.sessions[text(u["session"])] = true
+	h := a.hours[t.Hour()]
+	h["total"] = num(h["total"]) + tokens
+	h["requests"] = num(h["requests"]) + 1
+}
+
+func (a *activityAccumulator) result() Object {
 	active := map[int64]bool{}
 	longest, streak := 0, 0
 	previous := int64(math.MinInt64)
 	total, requests := 0., 0.
 	var peak any
-	for _, day := range order {
-		day["sessions"] = len(members[text(day["date"])])
+	for _, day := range a.order {
+		day["sessions"] = len(a.members[text(day["date"])])
 		if day["unpriced"] == day["requests"] {
 			day["cost"] = nil
 		}
@@ -106,8 +128,8 @@ func (s *Store) activity(f Object, pricing priceIndex, now time.Time, rows []Obj
 		}
 	}
 	current := 0
-	if year == now.Year() {
-		d, _ := time.Parse("2006-01-02", today)
+	if a.year == a.now.Year() {
+		d, _ := time.Parse("2006-01-02", a.today)
 		i := d.Unix() / 86400
 		if !active[i] {
 			i--
@@ -117,11 +139,11 @@ func (s *Store) activity(f Object, pricing priceIndex, now time.Time, rows []Obj
 			i--
 		}
 	}
-	firstYear := now.Year()
-	if truth(first) {
-		firstYear = parse(first).In(time.Local).Year()
+	firstYear := a.now.Year()
+	if truth(a.first) {
+		firstYear = parse(a.first).In(time.Local).Year()
 	}
-	return Object{"year": year, "today": today, "firstYear": firstYear, "days": order, "hours": hours, "stats": Object{"activeDays": len(active), "longestStreak": longest, "currentStreak": current, "sessions": len(sessions), "total": total, "requests": requests, "peak": peak}}
+	return Object{"year": a.year, "today": a.today, "firstYear": firstYear, "days": a.order, "hours": a.hours, "stats": Object{"activeDays": len(active), "longestStreak": longest, "currentStreak": current, "sessions": len(a.sessions), "total": total, "requests": requests, "peak": peak}}
 }
 
 func (s *Store) Widget(now time.Time) Object {
@@ -144,7 +166,7 @@ func (s *Store) Widget(now time.Time) Object {
 		speed = append(speed, Object{"time": now.UnixMilli() - int64(19-i)*3000, "total": 0.})
 	}
 	total, previous, input, cached, output := 0., 0., 0., 0., 0.
-	for _, r := range s.mustQuery("SELECT ts,input,cached,output FROM usage WHERE ts>=? AND ts<=? ORDER BY ts", iso(lo), iso(now)) {
+	s.each("SELECT ts,input,cached,output FROM usage WHERE ts>=? AND ts<=? ORDER BY ts", []any{iso(lo), iso(now)}, func(r Object) {
 		t := parse(r["ts"])
 		tokens := num(r["input"]) + num(r["output"])
 		if !t.Before(today) {
@@ -163,7 +185,7 @@ func (s *Store) Widget(now time.Time) Object {
 			output += num(r["output"])
 			speed[bin]["total"] = num(speed[bin]["total"]) + num(r["output"])/3
 		}
-	}
+	})
 	quotas := s.latestQuotas(account)
 	bucket := widgetBucket(quotas)
 	chosen := []Object{}

@@ -8,7 +8,7 @@ import (
 
 type response struct {
 	Event string
-	Data  json.RawMessage
+	Data  any
 }
 type Client struct {
 	native *monitor.Service
@@ -26,16 +26,28 @@ func startNativeClient(config monitor.Config) (*Client, error) {
 		defer close(c.done)
 		defer close(c.events)
 		for event := range service.Events {
-			b, _ := json.Marshal(event.Data)
 			select {
-			case c.events <- response{Event: event.Name, Data: b}:
+			case c.events <- response{Event: event.Name, Data: event.Data}:
 			default:
 			}
 		}
 	}()
 	return c, nil
 }
-func (c *Client) Call(ctx context.Context, method string, args any) (json.RawMessage, error) {
+func (c *Client) CallJSON(ctx context.Context, method string, args any) (json.RawMessage, error) {
 	return c.native.Call(ctx, method, args)
+}
+func (c *Client) Call(ctx context.Context, method string, args any) (any, error) {
+	return c.native.CallValue(ctx, method, args)
+}
+
+func (c *Client) Object(ctx context.Context, method string, args any) (Object, error) {
+	value, err := c.Call(ctx, method, args)
+	if err != nil {
+		return nil, err
+	}
+	result := obj(value)
+	normalizeLists(result)
+	return result, nil
 }
 func (c *Client) Close() { c.native.Close(); <-c.done }

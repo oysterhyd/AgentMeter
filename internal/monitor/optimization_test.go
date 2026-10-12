@@ -9,6 +9,20 @@ import (
 	"time"
 )
 
+// Map-shaped results are retained only for the old linear-reference tests and
+// the historical lookup benchmark; production aggregation uses usageCost.
+func (index priceIndex) cost(r Object) Object {
+	result := Object{}
+	index.calculate(r).write(result)
+	return result
+}
+
+func pricedCost(r, p Object) Object {
+	result := Object{}
+	calculateCost(r, p).write(result)
+	return result
+}
+
 // Reference linear lookup from v2.6.0, kept only for equivalence tests.
 func costOf(r Object, prices []Object) Object {
 	for _, p := range prices {

@@ -38,7 +38,7 @@ func (s *Store) addQuota(raw Object, ts, source string, account any) error {
 	if len(raw) == 0 || parse(ts).IsZero() {
 		return nil
 	}
-	if cleared := text(s.settings()["clearedAt"]); cleared != "" && ts <= cleared {
+	if cleared := s.clearedAt(); cleared != "" && ts <= cleared {
 		return nil
 	}
 	if account == nil {
@@ -163,7 +163,7 @@ func (s *Store) process(o, state Object, raw []byte) error {
 	if !truth(state["source"]) || !truth(state["session"]) {
 		return nil
 	}
-	cleared := text(s.settings()["clearedAt"])
+	cleared := s.clearedAt()
 	allowed := (cleared == "" || ts > cleared) && ts >= text(state["created"])
 	switch o["type"] {
 	case "turn_context":
@@ -299,7 +299,7 @@ func (s *Store) processPi(o, state Object) error {
 	if (!openai && !legacy) || (o["type"] == "message" && message["api"] != api) || message["stopReason"] == "pending" {
 		return nil
 	}
-	cleared := text(s.settings()["clearedAt"])
+	cleared := s.clearedAt()
 	if cleared != "" && ts <= cleared {
 		return nil
 	}

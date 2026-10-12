@@ -123,7 +123,7 @@ func TestGoTransportRetainsUnknownAndNumbers(t *testing.T) {
 	defer client.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	b, err := client.Call(ctx, "snapshot", Object{"page": "all", "range": "all", "pageSize": 50})
+	b, err := client.CallJSON(ctx, "snapshot", Object{"page": "all", "range": "all", "pageSize": 50})
 	if err != nil {
 		t.Fatal(err)
 	}

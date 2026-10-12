@@ -169,12 +169,17 @@ func RecoverDatabase(source, destination string) (counts map[string]int64, err e
 					pointers[i] = &values[i]
 				}
 				insert := "INSERT INTO " + quoted + " VALUES(" + strings.TrimSuffix(strings.Repeat("?,", len(columns)), ",") + ")"
+				statement, e := newStore.tx.Prepare(insert)
+				if e != nil {
+					return e
+				}
+				defer statement.Close()
 				counts[name] = 0
 				for rows.Next() {
 					if e = rows.Scan(pointers...); e != nil {
 						return e
 					}
-					if e = newStore.exec(insert, values...); e != nil {
+					if _, e = statement.Exec(values...); e != nil {
 						return e
 					}
 					counts[name]++

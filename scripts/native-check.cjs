@@ -16,6 +16,9 @@ try {
   const result=JSON.parse(fs.readFileSync(path.join(out,'result.json'),'utf8'));assert.equal(result.native,true);assert.equal(result.error,'');
   for(const key of ['insideWorkArea','captionVisible','resizable','movable','minimizable','maximizable','closable','moveWorked','resizeWorked','minimizeWorked','maximizeWorked','closeToTrayWorked'])assert.equal(result.window[key],true,`window ${key}`);
   assert.equal(result.page,4);assert.equal(result.rendered,4);assert.equal(result.widgetVerified,true);
+  const calls=JSON.parse(fs.readFileSync(path.join(out,'calls-result.json'),'utf8'));
+  assert.equal(calls.verified,true,'real native call view');assert.equal(calls.rows,50);assert.ok(calls.pagination.total>50);
+  assert.ok(fs.statSync(path.join(out,'calls.png')).size>1000);
   const widget=JSON.parse(fs.readFileSync(path.join(out,'widget-result.json'),'utf8'));
   const switching=JSON.parse(fs.readFileSync(path.join(out,'switch-performance.json'),'utf8'));
   assert.equal(switching.updaterConfigured,true,'signed native updater is configured');

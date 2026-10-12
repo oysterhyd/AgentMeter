@@ -18,17 +18,20 @@ type chartPoint struct {
 // Explicit segments preserve observations; a reset/gap must never become a slope.
 func chartSegments(points []chartPoint, step bool) [][]chartPoint {
 	var segments [][]chartPoint
+	start := 0
 	for i, p := range points {
 		reset := false
 		if i > 0 && step {
 			previous := points[i-1]
 			reset = (previous.Reset > previous.Time/1000 && previous.Reset <= p.Time/1000) || (previous.Reset != 0 && p.Reset != 0 && math.Abs(previous.Reset-p.Reset) > 1)
 		}
-		if i == 0 || p.Gap || reset {
-			segments = append(segments, []chartPoint{p})
-		} else {
-			segments[len(segments)-1] = append(segments[len(segments)-1], p)
+		if i > 0 && (p.Gap || reset) {
+			segments = append(segments, points[start:i])
+			start = i
 		}
+	}
+	if len(points) > 0 {
+		segments = append(segments, points[start:])
 	}
 	return segments
 }
@@ -237,7 +240,7 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, ste
 	})
 }
 func (a *App) timelinePoints(metric string) []chartPoint {
-	var result []chartPoint
+	result := make([]chartPoint, 0, len(objects(a.data["timeline"])))
 	gap := false
 	for _, row := range objects(a.data["timeline"]) {
 		if metric == "cost" && number(row["unpriced"]) == number(row["requests"]) && number(row["requests"]) > 0 {
