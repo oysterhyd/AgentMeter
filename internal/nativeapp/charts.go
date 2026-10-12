@@ -15,13 +15,15 @@ type chartPoint struct {
 	Gap         bool
 }
 
+const chartStrokeWidth = 2.5 // DIPs
+
 // Explicit segments preserve observations; a reset/gap must never become a slope.
-func chartSegments(points []chartPoint, step bool) [][]chartPoint {
+func chartSegments(points []chartPoint, quota bool) [][]chartPoint {
 	var segments [][]chartPoint
 	start := 0
 	for i, p := range points {
 		reset := false
-		if i > 0 && step {
+		if i > 0 && quota {
 			previous := points[i-1]
 			reset = (previous.Reset > previous.Time/1000 && previous.Reset <= p.Time/1000) || (previous.Reset != 0 && p.Reset != 0 && math.Abs(previous.Reset-p.Reset) > 1)
 		}
@@ -35,7 +37,7 @@ func chartSegments(points []chartPoint, step bool) [][]chartPoint {
 	}
 	return segments
 }
-func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, step bool, unit string) {
+func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quota bool, unit string) {
 	if len(points) == 0 {
 		ui.Text(c, a.tr("这个时间范围内还没有记录")).Padding(28).TextColor(c.Theme().TextMuted)
 		return
@@ -62,7 +64,7 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, ste
 			last = float64(end.UnixMilli())
 		}
 	}
-	segments := chartSegments(points, step)
+	segments := chartSegments(points, quota)
 	selected := -1
 	if a.chartSelection == nil {
 		a.chartSelection = map[string]int{}
@@ -121,48 +123,24 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, ste
 				}
 				p.Clip(ui.Rect{X: r.X - 6, Y: r.Y - 6, W: (r.W + 12) * fraction, H: r.H + 12}, 0, func() {
 					for segmentIndex, segment := range segments {
-						if step && segmentIndex > 0 && !segment[0].Gap {
+						if quota && segmentIndex > 0 && !segment[0].Gap {
 							previous := segments[segmentIndex-1]
 							lastPoint := previous[len(previous)-1]
 							dashed(p, x(lastPoint.Time), y(lastPoint.Value), x(segment[0].Time), y(segment[0].Value), 1.2, c.Theme().Accent.Alpha(.45), 3, 5)
 						}
-						var path ui.Path
-						for i, point := range segment {
-							if i == 0 {
-								path.MoveTo(x(point.Time), y(point.Value))
-							} else {
-								if step {
-									path.LineTo(x(point.Time), y(segment[i-1].Value))
-									path.LineTo(x(point.Time), y(point.Value))
-								} else if unit == "USD" {
-									previous := segment[i-1]
-									dx := (x(point.Time) - x(previous.Time)) / 3
-									path.CubeTo(x(previous.Time)+dx, y(previous.Value), x(point.Time)-dx, y(point.Value), x(point.Time), y(point.Value))
-								} else {
-									path.LineTo(x(point.Time), y(point.Value))
-								}
-							}
+						display := segment
+						if quota {
+							// Limit chord error to half the stroke width, in logical pixels.
+							display = chartDisplayPoints(segment, maximum*(chartStrokeWidth/2)/float64(max(1, r.H-12)))
 						}
+						path := chartCurve(display, x, y)
 						if last > first && (points[len(points)-1].Time-points[0].Time)/(last-first) >= .1 && len(segment) > 1 && segment[len(segment)-1].Time > segment[0].Time {
-							var area ui.Path
-							for i, point := range segment {
-								if i == 0 {
-									area.MoveTo(x(point.Time), y(point.Value))
-								} else if step {
-									area.LineTo(x(point.Time), y(segment[i-1].Value))
-									area.LineTo(x(point.Time), y(point.Value))
-								} else if unit == "USD" {
-									previous := segment[i-1]
-									dx := (x(point.Time) - x(previous.Time)) / 3
-									area.CubeTo(x(previous.Time)+dx, y(previous.Value), x(point.Time)-dx, y(point.Value), x(point.Time), y(point.Value))
-								} else {
-									area.LineTo(x(point.Time), y(point.Value))
-								}
-							}
+							// Append the baseline to the same curve; the stroke's length stays unchanged.
+							area := path
 							area.LineTo(x(segment[len(segment)-1].Time), y(0)).LineTo(x(segment[0].Time), y(0)).Close()
 							p.FillPath(&area, c.Theme().Accent.Alpha(.08))
 						}
-						p.StrokePath(&path, 2.5, c.Theme().Accent)
+						p.StrokePath(&path, chartStrokeWidth, c.Theme().Accent)
 						if len(points) < 15 {
 							radius := float32(2.5)
 							if len(points) < 4 {

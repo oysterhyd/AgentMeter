@@ -1,6 +1,6 @@
 {
   "name": "codex-monitor",
-  "version": "2.8.3",
+  "version": "2.8.4",
   "description": "Native Go Windows Codex desktop and CLI usage monitor",
   "private": true,
   "author": "Codex Monitor",

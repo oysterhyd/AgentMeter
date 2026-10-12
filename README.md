@@ -41,7 +41,7 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 | 用量总览 | Token、请求次数、缓存命中率、费用估算、使用趋势及模型 / 项目排行 |
 | 活动日历 | 年度热力图、活跃天数、连续活动、小时分布与单日详情 |
 | 历史分析 | 任务记录、逐次调用、任务内消耗占比、首字时间、失败重试事件、筛选分页与 CSV 导出 |
-| 账户额度 | 当前 Codex 账号的 5h / 每周额度、重置时间和离散采样曲线 |
+| 账户额度 | 当前 Codex 账号的 5h / 每周额度、重置时间和采样历史趋势 |
 | 设置与价格 | 中英文、主题、提醒、开机启动、账号名称与价格版本 |
 | 桌面小窗口 | 玻璃卡片与 Token 圆球、拖动、置顶、用量趋势和位置恢复 |
 
@@ -50,6 +50,8 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 历史分析可切换“任务分析 / 逐次调用”。逐次记录采用紧凑行，显示时间与状态、模型、首字时间、输入 / 输出、缓存命中和费用；点击展开详情。任务内明细显示消耗占比、平均 / P95 首字和失败重试事件，不展示来源列。Desktop、CLI 和已配置的 Pi 用量继续采集。新安装默认开启首字采集，自动配置 Codex Desktop / CLI 和 Pi；升级保留原开关，开启后自动接通。正在运行的客户端只需重启一次，Pi 也可执行 `/reload`；完整说明见 [逐次用量与首字分析](docs/request-analysis.md)。
 
 页面、筛选、数字和图表具有过渡反馈，小窗口保留卡片 / 圆球动画与鼠标高光。两种界面均遵循系统减少动态效果设置。
+
+Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰谷、额度重置和采样空档。鼠标与键盘浏览的数值来自原始记录；密集额度采样只精简绘制点。效果及实现说明见 [曲线平滑](docs/chart-smoothing.md)。
 
 活动日历按周渐次显现，鼠标移动时附近日期柔和高亮；点击日期仍可展开详情。活跃时段的柱条具有入场和数据变化动画，鼠标定位显示该小时的 Token 与记录数，聚焦图表后也可使用左右方向键及 `Home` / `End` 浏览。最近活动日显示最近八个有记录的日期，卡片随内容和字体大小适应，点击行可打开当天记录。
 
@@ -85,9 +87,9 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.8.3/Codex-Monitor-Setup-2.8.3.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.8.3)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.8.4/Codex-Monitor-Setup-2.8.4.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.8.4)
 
-运行 `Codex-Monitor-Setup-2.8.3.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
+运行 `Codex-Monitor-Setup-2.8.4.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 安装及登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 
