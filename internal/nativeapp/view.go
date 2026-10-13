@@ -12,6 +12,10 @@ func (a *App) View(c *ui.Context) {
 	a.skin(c)
 	t := c.Theme()
 	a.reduceMotion = c.Preferences().ReduceMotion
+	if a.lastRenderedPage != a.page {
+		a.chartSource = chartSourceCache{}
+		a.releaseChart()
+	}
 	a.lastRenderedPage = a.page
 	if c.Shortcut(ui.Cmd, ui.KeyR) {
 		a.action("refresh", nil, "数据已刷新")

@@ -39,20 +39,19 @@ func chartSegments(points []chartPoint, quota bool) [][]chartPoint {
 }
 func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quota bool, unit string) {
 	if len(points) == 0 {
+		a.releaseChart()
 		ui.Text(c, a.tr("这个时间范围内还没有记录")).Padding(28).TextColor(c.Theme().TextMuted)
 		return
 	}
-	maximum := float64(1)
-	if unit == "USD" {
-		maximum = .01
+	column := ui.Column(c).Key("chart-" + key + a.snapshotKey).Height(203).Gap(3)
+	renderer := ui.Local(column, "renderer", func() chartRenderer { return chartRenderer{} })
+	if a.chartRenderer != nil && a.chartRenderer != renderer && a.chartRenderer.name == key {
+		a.releaseChart()
 	}
-	if percent {
-		maximum = 100
-	} else {
-		for _, p := range points {
-			maximum = math.Max(maximum, p.Value)
-		}
-	}
+	a.chartRenderer = renderer
+	renderer.name = key
+	renderer.prepare(points, percent, quota, unit, a.snapshotRevision)
+	maximum := renderer.maximum
 	first, last := points[0].Time, points[len(points)-1].Time
 	if str(a.filter["range"]) != "all" {
 		start := dateValue(str(obj(a.data["range"])["start"]))
@@ -64,7 +63,6 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 			last = float64(end.UnixMilli())
 		}
 	}
-	segments := chartSegments(points, quota)
 	selected := -1
 	if a.chartSelection == nil {
 		a.chartSelection = map[string]int{}
@@ -81,7 +79,7 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 		}
 		return full(v) + " tokens"
 	}
-	ui.Column(c).Height(203).Gap(3).Children(func() {
+	column.Children(func() {
 		ui.Row(c).Gap(12).Children(func() {
 			ui.Column(c).Width(34).Height(150).Justify(ui.SpaceBetween).Children(func() {
 				for _, v := range []float64{maximum, maximum / 2, 0} {
@@ -122,39 +120,7 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 					}
 				}
 				p.Clip(ui.Rect{X: r.X - 6, Y: r.Y - 6, W: (r.W + 12) * fraction, H: r.H + 12}, 0, func() {
-					for segmentIndex, segment := range segments {
-						if quota && segmentIndex > 0 && !segment[0].Gap {
-							previous := segments[segmentIndex-1]
-							lastPoint := previous[len(previous)-1]
-							dashed(p, x(lastPoint.Time), y(lastPoint.Value), x(segment[0].Time), y(segment[0].Value), 1.2, c.Theme().Accent.Alpha(.45), 3, 5)
-						}
-						display := segment
-						if quota {
-							// Limit chord error to half the stroke width, in logical pixels.
-							display = chartDisplayPoints(segment, maximum*(chartStrokeWidth/2)/float64(max(1, r.H-12)))
-						}
-						path := chartCurve(display, x, y)
-						if last > first && (points[len(points)-1].Time-points[0].Time)/(last-first) >= .1 && len(segment) > 1 && segment[len(segment)-1].Time > segment[0].Time {
-							// Append the baseline to the same curve; the stroke's length stays unchanged.
-							area := path
-							area.LineTo(x(segment[len(segment)-1].Time), y(0)).LineTo(x(segment[0].Time), y(0)).Close()
-							p.FillPath(&area, c.Theme().Accent.Alpha(.08))
-						}
-						p.StrokePath(&path, chartStrokeWidth, c.Theme().Accent)
-						if len(points) < 15 {
-							radius := float32(2.5)
-							if len(points) < 4 {
-								radius = 4.5
-							}
-							for _, point := range segment {
-								p.Fill(ui.Rect{X: x(point.Time) - radius, Y: y(point.Value) - radius, W: radius * 2, H: radius * 2}, c.Theme().Accent, radius)
-							}
-						}
-						if len(segment) == 1 {
-							point := segment[0]
-							p.Fill(ui.Rect{X: x(point.Time) - 3, Y: y(point.Value) - 3, W: 6, H: 6}, c.Theme().Accent, 3)
-						}
-					}
+					renderer.draw(p, r, first, last, c.Theme().Accent, c.Invalidate)
 				})
 				if selected >= 0 {
 					point := points[selected]
@@ -165,17 +131,9 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 			if plot.Hovered() {
 				x, _, _ := plot.PointerPosition()
 				box := plot.Bounds()
-				nearest := -1
-				distance := float64(math.MaxFloat32)
-				for i, point := range points {
-					px := float64(box.W / 2)
-					if last > first {
-						px = ((point.Time - first) / (last - first)) * float64(box.W)
-					}
-					if d := math.Abs(float64(x) - px); d < distance {
-						nearest = i
-						distance = d
-					}
+				nearest := 0
+				if last > first && box.W > 0 {
+					nearest = chartNearest(points, first+(last-first)*float64(x)/float64(box.W))
 				}
 				selected = nearest
 				a.chartSelection[key] = nearest
@@ -218,17 +176,20 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 	})
 }
 func (a *App) timelinePoints(metric string) []chartPoint {
-	result := make([]chartPoint, 0, len(objects(a.data["timeline"])))
-	gap := false
-	for _, row := range objects(a.data["timeline"]) {
-		if metric == "cost" && number(row["unpriced"]) == number(row["requests"]) && number(row["requests"]) > 0 {
-			gap = true
-			continue
+	return a.chartPoints("timeline-"+metric, func() []chartPoint {
+		rows := objects(a.data["timeline"])
+		result := make([]chartPoint, 0, len(rows))
+		gap := false
+		for _, row := range rows {
+			if metric == "cost" && number(row["unpriced"]) == number(row["requests"]) && number(row["requests"]) > 0 {
+				gap = true
+				continue
+			}
+			result = append(result, chartPoint{Time: number(row["time"]), Value: number(row[metric]), Name: str(row["name"]), Gap: gap})
+			gap = false
 		}
-		result = append(result, chartPoint{Time: number(row["time"]), Value: number(row[metric]), Name: str(row["name"]), Gap: gap})
-		gap = false
-	}
-	return result
+		return result
+	})
 }
 
 func dashed(p *ui.Painter, x1, y1, x2, y2, width float32, color ui.Color, dash, gap float32) {

@@ -51,7 +51,7 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 
 页面、筛选、数字和图表具有过渡反馈，小窗口保留卡片 / 圆球动画与鼠标高光。两种界面均遵循系统减少动态效果设置。
 
-Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰谷、额度重置和采样空档。鼠标与键盘浏览的数值来自原始记录；密集额度采样只精简绘制点。效果及实现说明见 [曲线平滑](docs/chart-smoothing.md)。
+Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰谷、额度重置和采样空档。鼠标与键盘浏览的数值来自原始记录；密集额度采样只精简绘制点。动画复用后台绘制的曲线图层，长历史悬停使用二分查找。详见 [曲线平滑](docs/chart-smoothing.md) 与 [图表性能测量](docs/chart-performance.md)。
 
 活动日历按周渐次显现，鼠标移动时附近日期柔和高亮；点击日期仍可展开详情。活跃时段的柱条具有入场和数据变化动画，鼠标定位显示该小时的 Token 与记录数，聚焦图表后也可使用左右方向键及 `Home` / `End` 浏览。最近活动日显示最近八个有记录的日期，卡片随内容和字体大小适应，点击行可打开当天记录。
 
@@ -87,9 +87,9 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.8.4/Codex-Monitor-Setup-2.8.4.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.8.4)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.8.5/Codex-Monitor-Setup-2.8.5.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.8.5)
 
-运行 `Codex-Monitor-Setup-2.8.4.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
+运行 `Codex-Monitor-Setup-2.8.5.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 安装及登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 

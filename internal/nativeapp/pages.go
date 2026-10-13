@@ -395,15 +395,19 @@ func (a *App) quota(c *ui.Context) {
 		}
 		segment(c, &a.quotaIndex, labels, nil, float32(len(labels))*85, 35)
 		selected := quotas[a.quotaIndex]
-		var points []chartPoint
-		for _, q := range objects(a.data["quotaHistory"]) {
-			if str(q["bucket"]) != str(selected["bucket"]) || str(q["slot"]) != str(selected["slot"]) || str(q["account"]) != str(selected["account"]) {
-				continue
+		key := "quota-" + strings.Join([]string{str(selected["account"]), str(selected["bucket"]), str(selected["slot"])}, ":")
+		points := a.chartPoints(key, func() []chartPoint {
+			var points []chartPoint
+			for _, q := range objects(a.data["quotaHistory"]) {
+				if str(q["bucket"]) != str(selected["bucket"]) || str(q["slot"]) != str(selected["slot"]) || str(q["account"]) != str(selected["account"]) {
+					continue
+				}
+				t, _ := time.Parse(time.RFC3339, str(q["ts"]))
+				points = append(points, chartPoint{Time: float64(t.UnixMilli()), Value: 100 - number(q["used"]), Name: shortStamp(q["ts"]), Reset: number(q["resets"]), Gap: truth(q["gapBefore"])})
 			}
-			t, _ := time.Parse(time.RFC3339, str(q["ts"]))
-			points = append(points, chartPoint{Time: float64(t.UnixMilli()), Value: 100 - number(q["used"]), Name: shortStamp(q["ts"]), Reset: number(q["resets"]), Gap: truth(q["gapBefore"])})
-		}
-		a.chart(c, "quota-"+strings.Join([]string{str(selected["account"]), str(selected["bucket"]), str(selected["slot"])}, ":"), points, true, true, "")
+			return points
+		})
+		a.chart(c, key, points, true, true, "")
 		ui.Text(c, a.tr("额度属于当前登录账号，可能包含其他设备的用量；Token 统计覆盖本机 Codex 桌面端、CLI 与支持的 pi 记录。")).Padding(13, 0, 0, 0).BorderWidth(1, 0, 0, 0).BorderColor(c.Theme().Border).FontSize(11).TextColor(c.Theme().TextMuted)
 	})
 }

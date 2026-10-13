@@ -1,0 +1,319 @@
+{
+  "version": "2.8.5",
+  "baselineCommit": "d39e9210ba5cd7e0e5673c52dd258ba46ff1ba29",
+  "benchmarkHarnessSHA256": "5eefafdd58593f9b9bc1c3f931cbb767010017f9bfe3c20931b6954eceff76b8",
+  "benchmarkScope": "2400 synthetic points, 1100x260 DIPs, 150% DPI. Three 1s runs; identical warm-up. Full chart-only UI build, path/mask lookup and software composition. Moving changes plot position by 0.1 DIP per frame. Excludes window-wide UI and native GPU presentation; does not measure screen FPS.",
+  "measurements": [
+    {
+      "name": "BenchmarkChartHistoryFrame/tokens",
+      "baseline": {
+        "ns": 1203634,
+        "bytes": 240054,
+        "allocations": 32
+      },
+      "candidate": {
+        "ns": 32383,
+        "bytes": 280,
+        "allocations": 20
+      },
+      "reductionPercent": {
+        "ns": 97.31,
+        "bytes": 99.88,
+        "allocations": 37.5
+      },
+      "raw": {
+        "baseline": [
+          {
+            "ns": 1165750,
+            "bytes": 240054,
+            "allocations": 32
+          },
+          {
+            "ns": 1203634,
+            "bytes": 240052,
+            "allocations": 32
+          },
+          {
+            "ns": 1260070,
+            "bytes": 240060,
+            "allocations": 32
+          }
+        ],
+        "candidate": [
+          {
+            "ns": 29881,
+            "bytes": 280,
+            "allocations": 20
+          },
+          {
+            "ns": 32383,
+            "bytes": 280,
+            "allocations": 20
+          },
+          {
+            "ns": 34575,
+            "bytes": 280,
+            "allocations": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "BenchmarkChartHistoryFrame/quota",
+      "baseline": {
+        "ns": 936431,
+        "bytes": 354955,
+        "allocations": 2426
+      },
+      "candidate": {
+        "ns": 34799,
+        "bytes": 280,
+        "allocations": 20
+      },
+      "reductionPercent": {
+        "ns": 96.28,
+        "bytes": 99.92,
+        "allocations": 99.18
+      },
+      "raw": {
+        "baseline": [
+          {
+            "ns": 927984,
+            "bytes": 354964,
+            "allocations": 2426
+          },
+          {
+            "ns": 936431,
+            "bytes": 354953,
+            "allocations": 2426
+          },
+          {
+            "ns": 955401,
+            "bytes": 354955,
+            "allocations": 2426
+          }
+        ],
+        "candidate": [
+          {
+            "ns": 34892,
+            "bytes": 280,
+            "allocations": 20
+          },
+          {
+            "ns": 34100,
+            "bytes": 280,
+            "allocations": 20
+          },
+          {
+            "ns": 34799,
+            "bytes": 280,
+            "allocations": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "BenchmarkChartHistoryMovingFrame/tokens",
+      "baseline": {
+        "ns": 16427850,
+        "bytes": 256247,
+        "allocations": 33
+      },
+      "candidate": {
+        "ns": 5325371,
+        "bytes": 285,
+        "allocations": 20
+      },
+      "reductionPercent": {
+        "ns": 67.58,
+        "bytes": 99.89,
+        "allocations": 39.39
+      },
+      "raw": {
+        "baseline": [
+          {
+            "ns": 16427850,
+            "bytes": 256542,
+            "allocations": 41
+          },
+          {
+            "ns": 16354624,
+            "bytes": 256247,
+            "allocations": 33
+          },
+          {
+            "ns": 16704028,
+            "bytes": 256035,
+            "allocations": 33
+          }
+        ],
+        "candidate": [
+          {
+            "ns": 5359964,
+            "bytes": 469,
+            "allocations": 23
+          },
+          {
+            "ns": 5263442,
+            "bytes": 284,
+            "allocations": 20
+          },
+          {
+            "ns": 5325371,
+            "bytes": 285,
+            "allocations": 20
+          }
+        ]
+      }
+    },
+    {
+      "name": "BenchmarkChartHistoryMovingFrame/quota",
+      "baseline": {
+        "ns": 11835971,
+        "bytes": 354994,
+        "allocations": 2426
+      },
+      "candidate": {
+        "ns": 5574898,
+        "bytes": 286,
+        "allocations": 20
+      },
+      "reductionPercent": {
+        "ns": 52.9,
+        "bytes": 99.92,
+        "allocations": 99.18
+      },
+      "raw": {
+        "baseline": [
+          {
+            "ns": 11817228,
+            "bytes": 354997,
+            "allocations": 2426
+          },
+          {
+            "ns": 11835971,
+            "bytes": 354994,
+            "allocations": 2426
+          },
+          {
+            "ns": 11909470,
+            "bytes": 354986,
+            "allocations": 2426
+          }
+        ],
+        "candidate": [
+          {
+            "ns": 5428341,
+            "bytes": 286,
+            "allocations": 20
+          },
+          {
+            "ns": 5574898,
+            "bytes": 286,
+            "allocations": 20
+          },
+          {
+            "ns": 5610911,
+            "bytes": 285,
+            "allocations": 20
+          }
+        ]
+      }
+    }
+  ],
+  "nativeScope": "Same isolated 100-day fixture; all-history five-page native smoke, normal animations, alternating runs; frame statistics include all frames in each page stage. Engine elapsed frame time includes presentation waiting and startup/rebuild frames; not pure CPU time or measured screen FPS. Memory peaks cover the entire smoke, including resize, capture and all pages.",
+  "native": [
+    {
+      "variant": "baseline",
+      "peakPrivateBytes": 270004224,
+      "peakWorkingSetBytes": 244043776,
+      "pages": [
+        {
+          "page": "overview",
+          "backend": [
+            "drawn on the GPU"
+          ],
+          "total": {
+            "samples": 155,
+            "medianMs": 16.2,
+            "p95Ms": 17,
+            "maxMs": 33.6
+          },
+          "paint": {
+            "samples": 155,
+            "medianMs": 0.5,
+            "p95Ms": 1.6,
+            "maxMs": 6.3
+          }
+        },
+        {
+          "page": "quota",
+          "backend": [
+            "drawn on the GPU"
+          ],
+          "total": {
+            "samples": 156,
+            "medianMs": 16.1,
+            "p95Ms": 16.9,
+            "maxMs": 17.4
+          },
+          "paint": {
+            "samples": 156,
+            "medianMs": 1,
+            "p95Ms": 2,
+            "maxMs": 3.7
+          }
+        }
+      ]
+    },
+    {
+      "variant": "candidate",
+      "peakPrivateBytes": 266952704,
+      "peakWorkingSetBytes": 237363200,
+      "pages": [
+        {
+          "page": "overview",
+          "backend": [
+            "drawn on the GPU"
+          ],
+          "total": {
+            "samples": 160,
+            "medianMs": 16,
+            "p95Ms": 17.2,
+            "maxMs": 34.1
+          },
+          "paint": {
+            "samples": 160,
+            "medianMs": 0,
+            "p95Ms": 0.6,
+            "maxMs": 9.8
+          }
+        },
+        {
+          "page": "quota",
+          "backend": [
+            "drawn on the GPU"
+          ],
+          "total": {
+            "samples": 162,
+            "medianMs": 16.1,
+            "p95Ms": 16.9,
+            "maxMs": 18
+          },
+          "paint": {
+            "samples": 162,
+            "medianMs": 0.5,
+            "p95Ms": 1.6,
+            "maxMs": 3.7
+          }
+        }
+      ]
+    }
+  ],
+  "package": {
+    "installerBytes": 7904216,
+    "baselineInstallerBytes": 7883474,
+    "nativeExeBytes": 21228032,
+    "archiveBytes": 9607044
+  }
+}

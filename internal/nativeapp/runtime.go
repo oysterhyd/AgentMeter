@@ -49,6 +49,8 @@ type App struct {
 	selectedDay, expanded                               string
 	activityMetric                                      int
 	chartSelection                                      map[string]int
+	chartSource                                         chartSourceCache
+	chartRenderer                                       *chartRenderer
 	translations, systemTranslations                    map[string]string
 	accountDrafts                                       map[string]string
 	newAccount                                          string
@@ -222,6 +224,9 @@ func Run(resources fs.FS) error {
 	a.resources = resources
 	a.client = client
 	a.options = o
+	if o.Smoke && os.Getenv("MONITOR_CHART_PROFILE") == "1" {
+		a.filter["range"] = "all"
+	}
 	for path, dest := range map[string]*map[string]string{"assets/locales/translations.json": &a.translations, "assets/locales/system-translations.json": &a.systemTranslations} {
 		b, _ := fs.ReadFile(resources, path)
 		_ = json.Unmarshal(b, dest)
@@ -364,6 +369,7 @@ func (a *App) load() {
 				} else {
 					a.data = next
 					a.snapshotRevision++
+					a.chartSource.points = nil
 					a.snapshotPage = a.page
 					key, _ := json.Marshal(f)
 					a.snapshotKey = string(key)
@@ -607,6 +613,9 @@ func (a *App) smoke() {
 	a.updateWait(func() { a.win.Show(); a.win.Focus() })
 	a.verifyWindowControls()
 	for page, id := range pageIDs {
+		if os.Getenv("MONITOR_CHART_PROFILE") == "1" {
+			fmt.Fprintf(os.Stderr, "monitor: chart-profile begin %s\n", id)
+		}
 		a.updateWait(func() { a.navigate(page); a.win.Focus() })
 		deadline := time.Now().Add(12 * time.Second)
 		ready := false
@@ -631,6 +640,9 @@ func (a *App) smoke() {
 		png, err := a.win.CapturePage()
 		if err == nil {
 			_ = os.WriteFile(filepath.Join(a.options.Capture, id+".png"), png, 0600)
+		}
+		if os.Getenv("MONITOR_CHART_PROFILE") == "1" {
+			fmt.Fprintf(os.Stderr, "monitor: chart-profile end %s\n", id)
 		}
 	}
 	a.smokeCalls()
