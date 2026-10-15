@@ -87,9 +87,6 @@ func addNumbers(to, from Object, keys ...string) {
 		to[k] = num(to[k]) + num(from[k])
 	}
 }
-func emptyRank(name string) Object {
-	return Object{"name": name, "total": 0., "input": 0., "output": 0., "cached": 0., "cost": 0., "unpriced": 0., "requests": 0.}
-}
 func emptyTotals() Object {
 	return Object{"input": 0., "cached": 0., "output": 0., "inputCost": 0., "outputCost": 0., "cost": 0., "unpriced": 0., "requests": 0.}
 }
@@ -122,30 +119,51 @@ func matches(t Object, project any, search string) bool {
 	return false
 }
 
-type ranking struct {
-	byKey map[string]Object
-	order []Object
+// tally is one ranking row while it accumulates; plain fields keep the
+// per-usage hot path free of map writes and float boxing.
+type tally struct {
+	name                                                   string
+	total, input, output, cached, cost, unpriced, requests float64
 }
 
-func newRanking() *ranking { return &ranking{byKey: map[string]Object{}, order: []Object{}} }
+type ranking struct {
+	byKey map[string]*tally
+	order []*tally
+}
+
+func newRanking() *ranking { return &ranking{byKey: map[string]*tally{}} }
 func (r *ranking) add(key string, u Object, p usageCost) {
 	v := r.byKey[key]
 	if v == nil {
-		v = emptyRank(key)
+		v = &tally{name: key}
 		r.byKey[key] = v
 		r.order = append(r.order, v)
 	}
-	v["total"] = num(v["total"]) + num(u["input"]) + num(u["output"])
-	addNumbers(v, u, "input", "output", "cached")
-	v["cost"] = num(v["cost"]) + p.total
-	v["requests"] = num(v["requests"]) + 1
+	input, output := num(u["input"]), num(u["output"])
+	v.total += input + output
+	v.input += input
+	v.output += output
+	v.cached += num(u["cached"])
+	v.cost += p.total
+	v.requests++
 	if p.price == nil {
-		v["unpriced"] = num(v["unpriced"]) + 1
+		v.unpriced++
 	}
 }
+
+// list returns the rows in first-seen order.
+func (r *ranking) list() []Object {
+	out := make([]Object, len(r.order))
+	for i, v := range r.order {
+		out[i] = Object{"name": v.name, "total": v.total, "input": v.input, "output": v.output, "cached": v.cached, "cost": v.cost, "unpriced": v.unpriced, "requests": v.requests}
+	}
+	return out
+}
+
+// rank returns the rows by total, largest first.
 func (r *ranking) rank() []Object {
-	sort.SliceStable(r.order, func(i, j int) bool { return num(r.order[i]["total"]) > num(r.order[j]["total"]) })
-	return r.order
+	sort.SliceStable(r.order, func(i, j int) bool { return r.order[i].total > r.order[j].total })
+	return r.list()
 }
 func (s *Store) resolve(f Object) Object {
 	f = clone(f)
@@ -325,21 +343,27 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 		reuseActivity = analytics && !start.After(activityStart) && !end.Before(activityEnd)
 	}
 	if analytics {
+		var sum struct{ requests, legacy, unpriced, cost, saved, input, cached, output, reasoning, cacheWrite float64 }
+		bucketMinute, bucket := "", ""
 		s.each("SELECT u.* "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
 			p := pricing.calculate(u)
 			if reuseActivity {
 				calendar.add(u, p)
 			}
-			sums["requests"] = num(sums["requests"]) + 1
+			sum.requests++
 			if u["kind"] != "逐次记录" && u["kind"] != PiKind && u["kind"] != PiOpenAIKind {
-				sums["legacyRequests"] = num(sums["legacyRequests"]) + 1
+				sum.legacy++
 			}
-			addNumbers(sums, u, "input", "cached", "output", "reasoning", "cache_write")
+			sum.input += num(u["input"])
+			sum.cached += num(u["cached"])
+			sum.output += num(u["output"])
+			sum.reasoning += num(u["reasoning"])
+			sum.cacheWrite += num(u["cache_write"])
 			if p.price == nil {
-				sums["unpriced"] = num(sums["unpriced"]) + 1
+				sum.unpriced++
 			} else {
-				sums["cost"] = num(sums["cost"]) + p.total
-				sums["saved"] = num(sums["saved"]) + p.saved
+				sum.cost += p.total
+				sum.saved += p.saved
 			}
 			for _, v := range views {
 				key := text(u["model"])
@@ -356,9 +380,19 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 				if hourly {
 					format += " 15:00"
 				}
-				maps["timeline"].add(parse(u["ts"]).In(time.Local).Format(format), u, p)
+				// Rows arrive in time order, so consecutive rows in the same
+				// UTC minute share a bucket; skip re-parsing them.
+				ts := text(u["ts"])
+				if len(ts) < 16 || ts[:16] != bucketMinute {
+					bucketMinute, bucket = "", parse(ts).In(time.Local).Format(format)
+					if len(ts) == len("2006-01-02T15:04:05.000Z") && ts[len(ts)-1] == 'Z' {
+						bucketMinute = ts[:16]
+					}
+				}
+				maps["timeline"].add(bucket, u, p)
 			}
 		})
+		sums = Object{"input": sum.input, "cached": sum.cached, "output": sum.output, "reasoning": sum.reasoning, "cache_write": sum.cacheWrite, "cost": sum.cost, "saved": sum.saved, "unpriced": sum.unpriced, "requests": sum.requests, "legacyRequests": sum.legacy}
 	}
 	completed, failed, aborted := 0, 0, 0
 	timed, latency := []Object{}, []Object{}
@@ -514,7 +548,7 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	for _, t := range tasks {
 		t["project"] = projectOf(sessions, t["name"])
 	}
-	timeline := maps["timeline"].order
+	timeline := maps["timeline"].list()
 	sort.SliceStable(timeline, func(i, j int) bool { return text(timeline[i]["name"]) < text(timeline[j]["name"]) })
 	for _, r := range timeline {
 		v := text(r["name"])
@@ -534,7 +568,13 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	}
 	if optionsWanted {
 		models := []string{}
-		for _, r := range s.mustQuery("SELECT DISTINCT model FROM usage "+accountClause+" ORDER BY model", accountArgs...) {
+		// A loose index scan: one index seek per distinct model, not one row
+		// visit per usage record.
+		scope, scopeArgs := "", []any{}
+		if truth(f["account"]) {
+			scope, scopeArgs = " AND account=?", []any{f["account"], f["account"]}
+		}
+		for _, r := range s.mustQuery("WITH RECURSIVE m(model) AS (SELECT MIN(model) FROM usage WHERE model IS NOT NULL"+scope+" UNION ALL SELECT (SELECT MIN(model) FROM usage WHERE model>m.model"+scope+") FROM m WHERE m.model IS NOT NULL) SELECT model FROM m WHERE model IS NOT NULL", scopeArgs...) {
 			models = append(models, text(r["model"]))
 		}
 		projects := []string{}
@@ -571,7 +611,7 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	if has("all", "settings") {
 		priceOutput = prices
 	}
-	return Object{"activity": activity, "range": Object{"start": lo, "end": hi}, "sums": sums, "performance": performance, "models": maps["models"].rank(), "projects": maps["projects"].rank(), "tasks": tasks, "timeline": timeline, "turns": records, "quotas": quotas, "records": Object{"page": recordPage, "pageSize": pageSize, "total": len(recordTurns), "pages": pages}, "quotaHistorySamples": samples, "quotaHistory": history, "quotaAccount": account, "scan": s.get("scan"), "quotaStatus": status, "currentAccount": s.get("currentAccount"), "accounts": s.mustQuery("SELECT * FROM accounts ORDER BY label,id"), "coverage": s.mustOne("SELECT MIN(ts) first,MAX(ts) last,COUNT(*) records FROM usage "+accountClause, accountArgs...), "options": options, "settings": s.settings(), "prices": priceOutput, "recovery": s.get("recovery")}, nil
+	return Object{"activity": activity, "range": Object{"start": lo, "end": hi}, "sums": sums, "performance": performance, "models": maps["models"].rank(), "projects": maps["projects"].rank(), "tasks": tasks, "timeline": timeline, "turns": records, "quotas": quotas, "records": Object{"page": recordPage, "pageSize": pageSize, "total": len(recordTurns), "pages": pages}, "quotaHistorySamples": samples, "quotaHistory": history, "quotaAccount": account, "scan": s.get("scan"), "quotaStatus": status, "currentAccount": s.get("currentAccount"), "accounts": s.mustQuery("SELECT * FROM accounts ORDER BY label,id"), "coverage": s.mustOne("SELECT (SELECT MIN(ts) FROM usage "+accountClause+") first,(SELECT MAX(ts) FROM usage "+accountClause+") last,(SELECT COUNT(*) FROM usage "+accountClause+") records", append(append(append([]any{}, accountArgs...), accountArgs...), accountArgs...)...), "options": options, "settings": s.settings(), "prices": priceOutput, "recovery": s.get("recovery")}, nil
 }
 
 func (s *Store) quotaHistory(account any, lo, hi string) ([]Object, int) {

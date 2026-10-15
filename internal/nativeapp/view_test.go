@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"image/png"
-	"local.codex.monitor/internal/monitor"
-	"local.codex.monitor/internal/testfixture"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"local.codex.monitor/internal/monitor"
+	"local.codex.monitor/internal/testfixture"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -63,7 +64,7 @@ func TestNativePagesAndKeyboard(t *testing.T) {
 		t.Fatal("activity shortcut")
 	}
 	tt.Key(ui.Cmd, ui.KeyK)
-	if !a.commandOpen || !tt.HasText("命令面板") {
+	if !a.commandOpen || !tt.HasText("页面") {
 		t.Fatal("command palette")
 	}
 	tt.Key(0, ui.KeyEscape)
@@ -144,5 +145,28 @@ func TestQuotaSegmentsBreakAtResetAndGap(t *testing.T) {
 	segments := chartSegments(points, true)
 	if len(segments) != 3 || len(segments[0]) != 2 || segments[1][0].Value != 100 {
 		t.Fatal(segments)
+	}
+}
+
+// BenchmarkViewFrame measures one settled frame — build, layout and paint —
+// of each page at 1280×860 once entrance animations have finished.
+func BenchmarkViewFrame(b *testing.B) {
+	for i, id := range pageIDs {
+		b.Run(id, func(b *testing.B) {
+			a := fixtureApp(b)
+			a.navigate(i)
+			tt := ui.NewTester(a.View, 1280, 860)
+			tt.SetPreferences(ui.Preferences{ReduceMotion: true})
+			for range 30 {
+				tt.Frame()
+			}
+			time.Sleep(1500 * time.Millisecond)
+			tt.Frame()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				tt.Frame()
+			}
+		})
 	}
 }

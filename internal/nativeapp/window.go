@@ -22,7 +22,7 @@ func mainWindowOptions(work mygo.Rectangle, hidden bool, view mygo.Content) mygo
 	bounds := fitWindowBounds(mygo.Rectangle{X: work.X + (work.Width-1380)/2, Y: work.Y + (work.Height-960)/2, Width: 1380, Height: 960}, work)
 	return mygo.WindowOptions{Title: "Codex Monitor", X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height,
 		MinWidth: min(980, max(1, work.Width-32)), MinHeight: min(700, max(1, work.Height-32)),
-		TitleBarStyle: mygo.TitleBarDefault, Hidden: hidden, Content: view, StateKey: "main"}
+		TitleBarStyle: mygo.TitleBarHidden, Vibrancy: mygo.VibrancySidebar, Hidden: hidden, Content: view, StateKey: "main"}
 }
 
 // The SDK restores remembered bounds after applying WindowOptions. Repair an
@@ -55,7 +55,9 @@ func (a *App) verifyWindowControls() {
 		content := a.win.ContentBounds()
 		checks["bounds"], checks["workArea"] = original, work
 		checks["insideWorkArea"] = insideWorkArea(original, work)
-		checks["captionVisible"] = content.Y > original.Y && original.Y >= work.Y
+		// The title bar is hidden: the window controls sit over the page,
+		// so they show while the window's top edge is on screen.
+		checks["captionVisible"] = content.Y >= original.Y && original.Y >= work.Y && content.Height > 0
 		checks["resizable"], checks["movable"], checks["minimizable"], checks["maximizable"], checks["closable"] = a.win.IsResizable(), a.win.IsMovable(), a.win.IsMinimizable(), a.win.IsMaximizable(), a.win.IsClosable()
 		moved := original
 		moved.X += 18

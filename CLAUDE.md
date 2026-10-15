@@ -9,7 +9,7 @@ Codex Monitor is a Windows x64 application written in Go. MyGO renders the main 
 Use PowerShell 7 and Go 1.27.1. `scripts/go.cjs` resolves GO_EXE, the local Windows Go installation or PATH. npm scripts require Node 22.19+ and use only its standard library.
 
 - `go run .` / `npm start` / `npm run dev`: launch the native app.
-- `npm run build`: produce the executable and icon in build/native.
+- `npm run build`: produce the executable and icon in build/native (release build with `-tags mygo_noinspector`).
 - `go test ./...` / `npm test`: data, recovery, native UI and widget tests.
 - `npm run native:check`: synthetic native-window acceptance, including all five pages and the real Win32 widget.
 - `npm run widget:check` / `npm run test:ui`: aliases for the native acceptance suite.
@@ -21,7 +21,7 @@ Close the monitor from its tray before replacing an executable; GUI close hides 
 ## Architecture
 
 - main.go embeds icons/locales and starts internal/nativeapp.
-- internal/nativeapp owns pages, tray, window behavior, transitions and export.
+- internal/nativeapp owns pages, tray, window behavior, transitions and export. theme.go holds the light/dark system palettes, fonts, spring motions and shared controls (card, header, badge, segmented, popup, group/row); shell.go holds the sidebar, glass toolbar, filters and command palette. Build new UI from these helpers instead of styling elements ad hoc.
 - widget*.go owns widget layout, formatting, animation, refresh coalescing and per-pixel-alpha Win32 presentation. Its callbacks and model run on the GUI thread; asynchronous service results return through the GUI dispatcher. Keep memory-renderer/font caches across frames.
 - internal/monitor owns SQLite, source parsing/scans, accounts, prices, statistics, quotas and actions. One serialized service owns the database.
 - internal/testfixture and cmd/fixture generate temporary synthetic acceptance profiles. Never use personal data in test captures or release assets.

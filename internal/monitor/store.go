@@ -117,12 +117,6 @@ func parse(v any) time.Time {
 	return time.Time{}
 }
 func jsonText(v any) string { b, _ := json.Marshal(v); return string(b) }
-func rowsArray(v []Object) []Object {
-	if v == nil {
-		return []Object{}
-	}
-	return v
-}
 func defaultSettings() Object {
 	return Object{"theme": "system", "language": "zh-CN", "muted": false, "autoStart": false, "quotaInterval": 60, "codexExecutable": "", "clearedAt": nil, "telemetryEnabled": true, "telemetryPort": 4319}
 }

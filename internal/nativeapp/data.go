@@ -197,16 +197,6 @@ func stamp(v any) string {
 	}
 	return t.Local().Format("2006-01-02 15:04")
 }
-func duration(v any) string {
-	if v == nil {
-		return "—"
-	}
-	n := number(v) / 1000
-	if n < 60 {
-		return fmt.Sprintf("%.1fs", n)
-	}
-	return fmt.Sprintf("%.1fmin", n/60)
-}
 func shortPath(s string) string {
 	s = strings.ReplaceAll(s, "\\", "/")
 	if s == "" {
@@ -223,19 +213,39 @@ func clone(o Object) Object {
 }
 func bounded(n, lo, hi float64) float64 { return math.Max(lo, math.Min(hi, n)) }
 
+func (a *App) english() bool { return str(obj(a.data["settings"])["language"]) == "en" }
+
+// tr translates s and fills its {0}, {1}… placeholders in one pass.
 func (a *App) tr(s string, args ...any) string {
-	if str(obj(a.data["settings"])["language"]) == "en" {
+	if a.english() {
 		if next := a.translations[s]; next != "" {
 			s = next
 		}
 	}
-	for i, v := range args {
-		s = strings.ReplaceAll(s, fmt.Sprintf("{%d}", i), str(v))
+	if len(args) == 0 || strings.IndexByte(s, '{') < 0 {
+		return s
 	}
-	return s
+	var b strings.Builder
+	b.Grow(len(s) + 8*len(args))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '{' {
+			j, n := i+1, 0
+			for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+				n = n*10 + int(s[j]-'0')
+				j++
+			}
+			if j > i+1 && j < len(s) && s[j] == '}' && n < len(args) {
+				b.WriteString(str(args[n]))
+				i = j
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }
 func (a *App) system(s string) string {
-	if str(obj(a.data["settings"])["language"]) == "en" {
+	if a.english() {
 		if v := a.systemTranslations[s]; v != "" {
 			return v
 		}

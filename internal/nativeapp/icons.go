@@ -21,5 +21,3 @@ var icons = func() map[string]*ui.SVG {
 	}
 	return result
 }()
-
-func icon(c *ui.Context, name string, size float32) { ui.Icon(c, icons[name]).Size(size, size) }

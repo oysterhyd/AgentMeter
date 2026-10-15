@@ -21,7 +21,7 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 const feed = `https://github.com/${config.updates.github}/releases/latest/download/update-windows-amd64.json`;
 const flags = `-s -w -H=windowsgui -X github.com/egoist/mygo.production=1 -X github.com/egoist/mygo.packageVersion=${config.version} -X github.com/egoist/mygo.packageUpdateFeed=${feed} -X github.com/egoist/mygo.packageUpdateKey=${config.updates.publicKey}`;
-run(go, ['build', '-trimpath', `-ldflags=${flags}`, '-o', exe, '.']);
+run(go, ['build', '-trimpath', '-tags', 'mygo_noinspector', `-ldflags=${flags}`, '-o', exe, '.']);
 fs.copyFileSync(path.join(root, 'assets', 'icon.ico'), path.join(out, 'icon.ico'));
 console.log(`Native application: ${exe}`);
 if (task === 'start') run(exe, process.argv.slice(3));

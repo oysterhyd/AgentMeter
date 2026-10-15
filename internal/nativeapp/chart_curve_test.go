@@ -1,6 +1,7 @@
 package nativeapp
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -147,22 +148,23 @@ func TestChartHoverAndKeyboardUseAllObservations(t *testing.T) {
 	if !ok {
 		t.Fatal("missing focusable chart")
 	}
-	tt.Move(r.X+r.W*.77, r.Y+40)
-	if a.chartSelection["quota"] != 77 || !tt.HasText("sample-77 · 76.9%") {
-		t.Fatal("hover selected a simplified observation", tt.Texts())
+	x := r.X + (r.W-chartAxis)*.77
+	tt.Move(x, r.Y+40)
+	if a.chartSelection["quota"] != 77 {
+		t.Fatal("hover selected a simplified observation", a.chartSelection)
 	}
-	tt.ClickAt(r.X+r.W*.77, r.Y+40)
+	tt.ClickAt(x, r.Y+40)
 	tt.Move(2, 2)
 	tt.Key(0, ui.KeyLeft)
-	if !tt.HasText("sample-76 · 77.2%") {
-		t.Fatal("keyboard skipped an observation", tt.Texts())
+	if a.chartSelection["quota"] != 76 {
+		t.Fatal("keyboard skipped an observation", a.chartSelection)
 	}
 	tt.Key(0, ui.KeyHome)
-	if !tt.HasText("sample-0 · 100.0%") {
+	if a.chartSelection["quota"] != 0 {
 		t.Fatal("Home lost first sample")
 	}
 	tt.Key(0, ui.KeyEnd)
-	if !tt.HasText("sample-100 · 70.0%") {
+	if a.chartSelection["quota"] != 100 {
 		t.Fatal("End lost last sample")
 	}
 }
@@ -181,11 +183,11 @@ func TestChartCurveAndFillDoNotBridgeGaps(t *testing.T) {
 			tt.SetDark(dark)
 			r, _ := tt.Find("用量趋势 gap")
 			ink := func(fraction float32) bool {
-				x := int(r.X + r.W*fraction)
+				x := int(r.X + (r.W-chartAxis)*fraction)
 				y := int(r.Y + 6 + .4*(r.H-12))
 				for py := y - 2; py <= y+2; py++ {
 					color := tt.Image().RGBAAt(x, py)
-					if int(color.G)-int(color.R) > 40 && int(color.G)-int(color.B) > 10 {
+					if int(color.B)-int(color.R) > 40 && int(color.B)-int(color.G) > 10 {
 						return true
 					}
 				}
@@ -249,14 +251,12 @@ func TestChartSmoothPreview(t *testing.T) {
 			tt := ui.NewTester(func(c *ui.Context) {
 				a.skin(c)
 				ui.Column(c).Padding(16).Gap(16).Children(func() {
-					surface(c, 0, 300, func() {
-						panelHeading(c, "Token 使用趋势", "")
-						ui.Text(c, "输入（含缓存）   97.63M        输出   783.72K").FontSize(11).TextColor(c.Theme().TextMuted)
+					a.section(c, func() {
+						a.header(c, "Token 使用趋势", "", nil)
 						a.chart(c, "tokens", tokens, false, false, "tokens")
 					})
-					surface(c, 0, 305, func() {
-						panelHeading(c, "剩余额度历史", "")
-						ui.Text(c, "5 小时窗口").FontSize(11).TextColor(c.Theme().Accent)
+					a.section(c, func() {
+						a.header(c, "剩余额度历史", "5 小时窗口", nil)
 						a.chart(c, "quota", quota, true, true, "")
 					})
 				})
@@ -264,8 +264,14 @@ func TestChartSmoothPreview(t *testing.T) {
 			tt.SetPreferences(ui.Preferences{ReduceMotion: true})
 			tt.SetScale(config.scale)
 			tt.SetDark(config.dark)
-			if !tt.HasText("4,486,709 tokens") || !tt.HasText("100.0%") {
-				t.Fatal("real observations missing from captions")
+			plot, ok := tt.Find("用量趋势 tokens")
+			if !ok {
+				t.Fatal("chart missing")
+			}
+			before := bytes.Clone(tt.Image().Pix)
+			tt.Move(plot.X+plot.W/3, plot.Y+plot.H/2)
+			if bytes.Equal(before, tt.Image().Pix) {
+				t.Fatal("hover callout missing")
 			}
 			captureActivity(t, tt, fmt.Sprintf("charts-smooth-%d-%.2f-%t", config.width, config.scale, config.dark))
 		})
