@@ -142,7 +142,7 @@ func (a *App) sidebar(c *ui.Context) {
 			}
 		})
 	}
-	if !c.Vibrancy() {
+	if !c.Vibrancy() || a.reduceTransparency {
 		side.Background(p.sidebar)
 	} else {
 		side.Background(p.sidebar.Alpha(.35))

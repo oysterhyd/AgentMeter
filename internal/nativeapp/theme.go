@@ -3,6 +3,7 @@ package nativeapp
 import (
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -59,6 +60,11 @@ var (
 
 func (a *App) skin(c *ui.Context) {
 	a.enterIndex = 0
+	// MyGO 0.5.2 exposes this preference on Theme, but not ui.Preferences.
+	// ShowsMaterial still reports true when Windows disables transparency.
+	if a.win != nil {
+		a.reduceTransparency = mygo.Theme.Preferences().ReduceTransparency
+	}
 	dark := c.Theme().Dark
 	a.pal = &lightPalette
 	t := ui.LightTheme()
@@ -77,7 +83,7 @@ func (a *App) skin(c *ui.Context) {
 	t.Focus, t.Selection = p.accent.Alpha(.6), p.accent.Alpha(.25)
 	t.Scrollbar, t.ScrollbarWidth = p.label.Alpha(.22), 7
 	c.SetTheme(t)
-	if c.Vibrancy() {
+	if c.Vibrancy() && !a.reduceTransparency {
 		c.Root().Background(ui.Transparent)
 	} else {
 		c.Root().Background(p.bg)

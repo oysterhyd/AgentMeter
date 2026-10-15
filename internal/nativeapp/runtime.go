@@ -87,6 +87,7 @@ type App struct {
 	mainFade                    widgetMotion
 	mainRefreshPending          bool
 	windowVerification          Object
+	reduceTransparency          bool
 }
 
 func NewApp() *App {

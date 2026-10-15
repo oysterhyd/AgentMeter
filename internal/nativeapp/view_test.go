@@ -81,6 +81,23 @@ func TestNativePagesAndKeyboard(t *testing.T) {
 		t.Fatal("dark rendering")
 	}
 }
+
+func TestSidebarTransparencyPreference(t *testing.T) {
+	a := fixtureApp(t)
+	tt := ui.NewTester(a.View, 980, 700)
+	tt.SetVibrancy(true)
+	for _, dark := range []bool{false, true} {
+		tt.SetDark(dark)
+		for _, reduced := range []bool{false, true} {
+			a.reduceTransparency = reduced
+			tt.Frame()
+			_, _, _, alpha := tt.Image().At(4, 400).RGBA()
+			if (alpha == 65535) != reduced {
+				t.Fatalf("dark=%v reduceTransparency=%v: sidebar alpha=%d", dark, reduced, alpha)
+			}
+		}
+	}
+}
 func TestNativePageSnapshots(t *testing.T) {
 	a := fixtureApp(t)
 	out := os.Getenv("MONITOR_NATIVE_CAPTURE")
