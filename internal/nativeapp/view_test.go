@@ -3,6 +3,7 @@ package nativeapp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -94,6 +95,68 @@ func TestSidebarTransparencyPreference(t *testing.T) {
 			_, _, _, alpha := tt.Image().At(4, 400).RGBA()
 			if (alpha == 65535) != reduced {
 				t.Fatalf("dark=%v reduceTransparency=%v: sidebar alpha=%d", dark, reduced, alpha)
+			}
+		}
+	}
+}
+
+func TestRedesignDPIThemesAndSettings(t *testing.T) {
+	for _, dark := range []bool{false, true} {
+		for _, scale := range []float32{1, 1.5, 2} {
+			for page := range pageIDs {
+				t.Run(fmt.Sprintf("%s/dark=%v/scale=%.1f", pageIDs[page], dark, scale), func(t *testing.T) {
+					a := fixtureApp(t)
+					a.page = page
+					tt := ui.NewTester(a.View, 980, 700)
+					tt.SetPreferences(ui.Preferences{ReduceMotion: true})
+					tt.SetTitleBar(ui.TitleBar{Height: 32, Right: 138})
+					tt.SetScale(scale)
+					tt.SetDark(dark)
+					if a.pal.dark != dark || !a.reduceMotion || !tt.HasText(pageNames[page]) {
+						t.Fatal("appearance, reduced motion or page missing")
+					}
+					if got := tt.Image().Bounds(); got.Dx() != int(980*scale) || got.Dy() != int(700*scale) {
+						t.Fatalf("DPI raster: %v", got)
+					}
+					for _, label := range []string{"刷新数据与额度", "导出 CSV"} {
+						if page == 4 && label == "导出 CSV" {
+							continue
+						}
+						r, ok := tt.Find(label)
+						if !ok || r.X < sidebarWidth || r.X+r.W > 980-138 || r.Y < 32 {
+							t.Fatalf("toolbar overlaps window controls: %s %+v", label, r)
+						}
+					}
+					if page == 2 {
+						if err := tt.Click("逐次调用"); err != nil || a.historyMode != 1 || !tt.HasText("首字") {
+							t.Fatal("call view", err)
+						}
+					}
+					if page == 4 {
+						for i, section := range []string{"通用", "账号", "模型价格", "数据与存储"} {
+							if err := tt.Click(section); err != nil || a.settingsSection != i {
+								t.Fatal("settings navigation", err)
+							}
+							if !tt.HasText([]string{"软件更新", "账号管理", "新增价格版本", "数据来源"}[i]) {
+								t.Fatal(tt.Texts())
+							}
+						}
+					}
+					if out := os.Getenv("MONITOR_NATIVE_CAPTURE"); out != "" {
+						if err := os.MkdirAll(out, 0700); err != nil {
+							t.Fatal(err)
+						}
+						f, err := os.Create(filepath.Join(out, fmt.Sprintf("redesign-%s-%v-%.1f.png", pageIDs[page], dark, scale)))
+						if err != nil {
+							t.Fatal(err)
+						}
+						err = png.Encode(f, tt.Image())
+						_ = f.Close()
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+				})
 			}
 		}
 	}

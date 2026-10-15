@@ -649,6 +649,7 @@ func (a *App) smoke() {
 			fmt.Fprintf(os.Stderr, "monitor: chart-profile end %s\n", id)
 		}
 	}
+	a.smokeAppearance()
 	a.smokeCalls()
 	if a.options.SmokeWidget {
 		a.updateWait(func() { a.toggleWidget() })
