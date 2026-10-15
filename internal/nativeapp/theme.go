@@ -1,6 +1,7 @@
 package nativeapp
 
 import (
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -279,9 +280,18 @@ func (a *App) group(c *ui.Context, title, footer string, rows func()) {
 // row is one line of a group: a badge, a title over a description, and the
 // control that changes it.
 func (a *App) row(c *ui.Context, iconName string, color ui.Color, title, description string, control func()) ui.Element {
+	var leading func()
+	if iconName != "" {
+		leading = func() { a.badge(c, iconName, color, 28) }
+	}
+	return a.rowWith(c, leading, title, description, control)
+}
+
+// rowWith is row with any 28-point leading mark, such as a model's logo.
+func (a *App) rowWith(c *ui.Context, leading func(), title, description string, control func()) ui.Element {
 	if a.groupRow > 0 {
 		inset := float32(16)
-		if iconName != "" {
+		if leading != nil {
 			inset = 56
 		}
 		a.separator(c, inset)
@@ -289,8 +299,8 @@ func (a *App) row(c *ui.Context, iconName string, color ui.Color, title, descrip
 	a.groupRow++
 	r := ui.Row(c).MinHeight(52).Padding(10, 16).Gap(12).AlignItems(ui.Center)
 	r.Children(func() {
-		if iconName != "" {
-			a.badge(c, iconName, color, 28)
+		if leading != nil {
+			leading()
 		}
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(2).Children(func() {
 			ui.Text(c, title).FontSize(13).FontWeight(500)
@@ -303,6 +313,44 @@ func (a *App) row(c *ui.Context, iconName string, color ui.Color, title, descrip
 		}
 	})
 	return r
+}
+
+// openAIModel reports whether a model is OpenAI's: GPT, the o series or Codex.
+func openAIModel(model string) bool {
+	m := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "openai/")
+	return strings.HasPrefix(m, "gpt") || strings.HasPrefix(m, "chatgpt") || strings.Contains(m, "codex") ||
+		len(m) > 1 && m[0] == 'o' && m[1] >= '1' && m[1] <= '9'
+}
+
+// modelMark is a model's badge: OpenAI's monochrome logo on a black tile
+// (white in dark mode), or a neutral chip for other providers.
+func (a *App) modelMark(c *ui.Context, model string, size float32) ui.Element {
+	if !openAIModel(model) {
+		return a.badge(c, "cpu-fill", a.pal.gray, size)
+	}
+	tile, mark := ui.RGB(0, 0, 0), ui.RGB(255, 255, 255)
+	if a.pal.dark {
+		tile, mark = mark, tile
+	}
+	b := ui.Box(c).Size(size, size).Shrink(0).Radius(size * .27).Center().Background(tile)
+	b.Children(func() { ui.Icon(c, icons["openai"]).Size(size*.66, size*.66).TextColor(mark) })
+	return b
+}
+
+// modelLabel is a model name led by its small mark, for table cells.
+func (a *App) modelLabel(c *ui.Context, model string, size float32, weight int) ui.Element {
+	return ui.Row(c).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
+		if openAIModel(model) {
+			mark := ui.RGB(0, 0, 0)
+			if a.pal.dark {
+				mark = ui.RGB(255, 255, 255)
+			}
+			a.glyph(c, "openai", size+2, mark)
+		} else {
+			a.glyph(c, "cpu-fill", size+2, a.pal.tertiary)
+		}
+		ui.Text(c, model).FontSize(size).FontWeight(weight).SingleLine().Grow(1).MinWidth(0).Tooltip(model)
+	})
 }
 
 func (a *App) empty(c *ui.Context, text string) {

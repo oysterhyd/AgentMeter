@@ -413,6 +413,7 @@ type command struct {
 	group, label, icon string
 	color              ui.Color
 	run                func()
+	model              bool
 }
 
 func (a *App) commands() []command {
@@ -423,7 +424,7 @@ func (a *App) commands() []command {
 		label := a.tr(pageNames[item.page])
 		if query == "" || strings.Contains(strings.ToLower(label), query) {
 			page := item.page
-			list = append(list, command{a.tr("页面"), label, item.icon, item.color(p), func() { a.navigate(page) }})
+			list = append(list, command{a.tr("页面"), label, item.icon, item.color(p), func() { a.navigate(page) }, false})
 		}
 	}
 	if query == "" {
@@ -437,7 +438,7 @@ func (a *App) commands() []command {
 				if key == "project" {
 					group = a.tr("项目")
 				}
-				list = append(list, command{group, name, entry.icon, p.purple, func() { a.change(key, value); a.navigate(2) }})
+				list = append(list, command{group, name, entry.icon, p.purple, func() { a.change(key, value); a.navigate(2) }, key == "model"})
 			}
 		}
 	}
@@ -497,7 +498,11 @@ func (a *App) commandPalette(c *ui.Context) {
 					row.Background(p.accent)
 				}
 				row.Children(func() {
-					a.badge(c, cmd.icon, cmd.color, 24)
+					if cmd.model {
+						a.modelMark(c, cmd.label, 24)
+					} else {
+						a.badge(c, cmd.icon, cmd.color, 24)
+					}
 					text := ui.Text(c, cmd.label).FontSize(14).Grow(1).SingleLine()
 					if selected {
 						text.TextColor(ui.RGB(255, 255, 255))
