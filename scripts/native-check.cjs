@@ -8,6 +8,9 @@ const go=require('./go.cjs');
 const env={...process.env,MONITOR_NATIVE_FIXTURE:profile,MONITOR_NATIVE_CAPTURE:out};
 function run(file,args,options={}){const r=spawnSync(file,args,{cwd:root,env,windowsHide:true,stdio:'inherit',...options});if(r.error)throw r.error;assert.equal(r.status,0,`${file} ${args.join(' ')} exited ${r.status}`);return r;}
 try {
+  // A failed run must never reuse screenshots or a report from an older build.
+  assert.equal(path.dirname(out),path.join(root,'artifacts'));
+  fs.rmSync(out,{recursive:true,force:true});
   run(go,['run','./cmd/fixture',profile]);fs.mkdirSync(out,{recursive:true});
   run(go,['test','-v','./...']);
   run(process.execPath,[path.join(root,'scripts','native.cjs'),'build']);
@@ -21,6 +24,14 @@ try {
   assert.ok(fs.statSync(path.join(out,'calls.png')).size>1000);
   const widget=JSON.parse(fs.readFileSync(path.join(out,'widget-result.json'),'utf8'));
   const switching=JSON.parse(fs.readFileSync(path.join(out,'switch-performance.json'),'utf8'));
+  const appearance=JSON.parse(fs.readFileSync(path.join(out,'appearance-result.json'),'utf8'));
+  for(const theme of ['light','dark']) {
+    assert.equal(appearance[`theme-${theme}`],true,`native ${theme} appearance`);
+    for(const group of ['general','accounts','prices','data']) {
+      assert.equal(appearance[`settings-${group}-${theme}`],true);
+      assert.ok(fs.statSync(path.join(out,`settings-${group}-${theme}.png`)).size>1000);
+    }
+  }
   assert.equal(switching.updaterConfigured,true,'signed native updater is configured');
   assert.equal(switching.rapidReverse,true,'rapid window reversal');
   for(const key of ['layered','fixedSize','rendered','perPixelAlpha','noBrowserChildren','orbHit','transparentHit','keyboardExpand','expiredUnknown','errorVisible','reducedMotion','retryRecovered','topmostToggle','hidePersisted','dragWorked','dragDidNotExpand','idleBuffersReleased','coldRestored'])assert.equal(widget[key],true,`widget ${key}`);

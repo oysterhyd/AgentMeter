@@ -155,7 +155,7 @@ func (r *chartRenderer) paint(p *ui.Painter, box ui.Rect, first, last float64, a
 		if last > first && (pointsLast-pointsFirst)/(last-first) >= .1 && len(segment) > 1 && segment[len(segment)-1].Time > segment[0].Time {
 			area := path
 			area.LineTo(x(segment[len(segment)-1].Time), y(0)).LineTo(x(segment[0].Time), y(0)).Close()
-			p.FillPath(&area, accent.Alpha(.08))
+			p.FillPathGradient(&area, chartFill(accent))
 		}
 		p.StrokePath(&path, chartStrokeWidth, accent)
 		if r.data.count < 15 {

@@ -38,12 +38,22 @@ func chartSegments(points []chartPoint, quota bool) [][]chartPoint {
 	return segments
 }
 func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quota bool, unit string) {
+	a.chartColored(c, key, points, percent, quota, unit, a.pal.accent)
+}
+
+const chartHeight = 168 // DIPs of plot
+
+// chartColored is a line chart in the manner of Swift Charts: a gradient
+// under the curve, hairline rules, trailing axis labels, and a lollipop with
+// a callout under the pointer.
+func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, percent, quota bool, unit string, accent ui.Color) {
+	pal := a.pal
 	if len(points) == 0 {
 		a.releaseChart()
-		ui.Text(c, a.tr("这个时间范围内还没有记录")).Padding(28).TextColor(c.Theme().TextMuted)
+		a.empty(c, a.tr("这个时间范围内还没有记录"))
 		return
 	}
-	column := ui.Column(c).Key("chart-" + key + a.snapshotKey).Height(203).Gap(3)
+	column := ui.Column(c.Key("chart-" + key + a.snapshotKey)).Gap(6)
 	renderer := ui.Local(column, "renderer", func() chartRenderer { return chartRenderer{} })
 	if a.chartRenderer != nil && a.chartRenderer != renderer && a.chartRenderer.name == key {
 		a.releaseChart()
@@ -54,19 +64,17 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 	maximum := renderer.maximum
 	first, last := points[0].Time, points[len(points)-1].Time
 	if str(a.filter["range"]) != "all" {
-		start := dateValue(str(obj(a.data["range"])["start"]))
-		end := dateValue(str(obj(a.data["range"])["end"]))
-		if !start.IsZero() {
+		if start := dateValue(str(obj(a.data["range"])["start"])); !start.IsZero() {
 			first = float64(start.UnixMilli())
 		}
-		if !end.IsZero() {
+		if end := dateValue(str(obj(a.data["range"])["end"])); !end.IsZero() {
 			last = float64(end.UnixMilli())
 		}
 	}
-	selected := -1
 	if a.chartSelection == nil {
 		a.chartSelection = map[string]int{}
 	}
+	selected := -1
 	if value, ok := a.chartSelection[key]; ok && value < len(points) {
 		selected = value
 	}
@@ -79,102 +87,108 @@ func (a *App) chart(c *ui.Context, key string, points []chartPoint, percent, quo
 		}
 		return full(v) + " tokens"
 	}
-	column.Children(func() {
-		ui.Row(c).Gap(12).Children(func() {
-			ui.Column(c).Width(34).Height(150).Justify(ui.SpaceBetween).Children(func() {
-				for _, v := range []float64{maximum, maximum / 2, 0} {
-					label := compact(v)
-					if percent {
-						label = fmt.Sprintf("%.0f%%", v)
-					} else if unit == "USD" {
-						label = money(v)
-					}
-					ui.Text(c, label).FontSize(10).TextColor(c.Theme().TextMuted)
-				}
-			})
-			plot := ui.Box(c).Key(key + a.snapshotKey).Grow(1).Height(150).Focusable().Label(a.tr("用量趋势") + " " + key)
-			started := ui.Local(plot, "reveal-start", func() time.Time { return c.Now() })
-			plot.Draw(func(p *ui.Painter, r ui.Rect) {
-				x := func(t float64) float32 {
-					if last <= first {
-						return r.X + r.W/2
-					}
-					return r.X + float32((t-first)/(last-first))*r.W
-				}
-				y := func(v float64) float32 { return r.Y + 6 + float32(1-v/maximum)*(r.H-12) }
-				for _, fraction := range []float64{0, .5, 1} {
-					dashed(p, r.X, y(maximum*fraction), r.X+r.W, y(maximum*fraction), 1, c.Theme().Border, 4, 5)
-				}
-				for i := 0; i <= 6; i++ {
-					t := first + (last-first)*float64(i)/6
-					p.Line(x(t), y(maximum), x(t), y(0), 1, c.Theme().Border.Alpha(.35))
-					if last <= first {
-						break
-					}
-				}
-				fraction := float32(1)
-				if !c.Preferences().ReduceMotion {
-					fraction = motionEase(float32(p.Now().Sub(*started)) / float32(motionReveal))
-					if fraction < 1 {
-						p.AnimationFrame()
-					}
-				}
-				p.Clip(ui.Rect{X: r.X - 6, Y: r.Y - 6, W: (r.W + 12) * fraction, H: r.H + 12}, 0, func() {
-					renderer.draw(p, r, first, last, c.Theme().Accent, c.Invalidate)
-				})
-				if selected >= 0 {
-					point := points[selected]
-					p.Line(x(point.Time), r.Y, x(point.Time), r.Y+r.H, 1, c.Theme().Accent.Alpha(.4))
-					p.Fill(ui.Rect{X: x(point.Time) - 4, Y: y(point.Value) - 4, W: 8, H: 8}, c.Theme().Accent, 4)
-				}
-			})
-			if plot.Hovered() {
-				x, _, _ := plot.PointerPosition()
-				box := plot.Bounds()
-				nearest := 0
-				if last > first && box.W > 0 {
-					nearest = chartNearest(points, first+(last-first)*float64(x)/float64(box.W))
-				}
-				selected = nearest
-				a.chartSelection[key] = nearest
-			}
-			if plot.Focused() {
-				for _, pair := range []struct {
-					key   ui.Key
-					delta int
-				}{{ui.KeyLeft, -1}, {ui.KeyRight, 1}} {
-					if plot.Shortcut(0, pair.key) {
-						selected = max(0, min(len(points)-1, selected+pair.delta))
-						a.chartSelection[key] = selected
-					}
-				}
-				if plot.Shortcut(0, ui.KeyHome) {
-					selected = 0
-					a.chartSelection[key] = selected
-				}
-				if plot.Shortcut(0, ui.KeyEnd) {
-					selected = len(points) - 1
-					a.chartSelection[key] = selected
-				}
-			}
-		})
-		ui.Row(c).Padding(0, 0, 0, 46).Height(20).Justify(ui.SpaceBetween).Children(func() {
-			for i := 0; i <= 6; i++ {
-				t := time.UnixMilli(int64(first + (last-first)*float64(i)/6)).Local()
-				format := "15:04"
-				if last-first > 2*86400000 {
-					format = "01/02"
-				}
-				ui.Text(c, t.Format(format)).FontSize(10).TextColor(c.Theme().TextMuted)
-			}
-		})
-		caption := " "
-		if selected >= 0 {
-			caption = points[selected].Name + " · " + format(points[selected].Value)
+	axis := func(v float64) string {
+		if percent {
+			return fmt.Sprintf("%.0f%%", v)
+		} else if unit == "USD" {
+			return money(v)
 		}
-		ui.Text(c, caption).FontSize(10).TextColor(c.Theme().TextMuted)
+		return compact(v)
+	}
+	column.Children(func() {
+		plot := ui.Box(c.Key(key + a.snapshotKey)).FillWidth().Height(chartHeight).Focusable().Label(a.tr("用量趋势") + " " + key)
+		ui.Local(plot, "init", func() bool { plot.Jump("reveal", 0); return true })
+		reveal := plot.AnimateTo("reveal", 1, ui.Animation{Duration: motionReveal, Ease: motionEase})
+		active := false
+		if plot.Hovered() {
+			x, _, _ := plot.PointerPosition()
+			box := plot.Bounds()
+			if w := box.W - chartAxis; last > first && w > 0 {
+				selected = chartNearest(points, first+(last-first)*float64(min(x, w))/float64(w))
+			} else {
+				selected = 0
+			}
+			a.chartSelection[key] = selected
+			active = true
+		}
+		if plot.Focused() {
+			active = true
+			for _, move := range []struct {
+				key ui.Key
+				to  int
+			}{{ui.KeyLeft, selected - 1}, {ui.KeyRight, selected + 1}, {ui.KeyHome, 0}, {ui.KeyEnd, len(points) - 1}} {
+				if plot.Shortcut(0, move.key) {
+					selected = max(0, min(len(points)-1, move.to))
+					a.chartSelection[key] = selected
+				}
+			}
+			selected = max(selected, 0)
+		}
+		show := plot.Animate("callout", map[bool]float32{true: 1, false: 0}[active && selected >= 0], motionQuick)
+		labels := [3]string{axis(maximum), axis(maximum / 2), axis(0)}
+		plot.Draw(func(p *ui.Painter, r ui.Rect) {
+			r.W -= chartAxis
+			y := func(v float64) float32 { return r.Y + 6 + float32(1-v/maximum)*(r.H-12) }
+			for i, fraction := range []float64{1, .5, 0} {
+				line := y(maximum * fraction)
+				p.Fill(ui.Rect{X: r.X, Y: line - .5, W: r.W, H: 1}, pal.separator.Alpha(float32(pal.separator.A)/255*map[bool]float32{true: 1, false: .6}[fraction == 0]), 0)
+				p.Text(r.X+r.W+10, line-7, labels[i], 10, pal.tertiary)
+			}
+			p.Clip(ui.Rect{X: r.X - 6, Y: r.Y - 6, W: (r.W + 12) * reveal, H: r.H + 12}, 0, func() {
+				renderer.draw(p, r, first, last, accent, c.Invalidate)
+			})
+		})
+		plot.DrawOver(func(p *ui.Painter, r ui.Rect) {
+			if show <= 0 || selected < 0 {
+				return
+			}
+			r.W -= chartAxis
+			point := points[selected]
+			px := r.X + r.W/2
+			if last > first {
+				px = r.X + float32((point.Time-first)/(last-first))*r.W
+			}
+			py := r.Y + 6 + float32(1-point.Value/maximum)*(r.H-12)
+			p.Fill(ui.Rect{X: px - .5, Y: r.Y, W: 1, H: r.H}, pal.label.Alpha(.18*show), 0)
+			ring := 5 * show
+			p.Shadow(ui.Rect{X: px - ring, Y: py - ring, W: ring * 2, H: ring * 2}, ring, 0, 1, 4, 0, ui.RGBA(0, 0, 0, .25*show))
+			p.Fill(ui.Rect{X: px - ring, Y: py - ring, W: ring * 2, H: ring * 2}, pal.card, ring)
+			p.Fill(ui.Rect{X: px - ring + 2, Y: py - ring + 2, W: ring*2 - 4, H: ring*2 - 4}, accent, ring-2)
+			title, value := point.Name, format(point.Value)
+			tw, _ := p.MeasureText(0, ui.Span{Text: title, Size: 11})
+			vw, _ := p.MeasureText(0, ui.Span{Text: value, Size: 13, Weight: 600})
+			w := max(tw, vw) + 20
+			bx := max(r.X, min(r.X+r.W-w, px-w/2))
+			by := py - 58
+			if by < r.Y-10 {
+				by = py + 14
+			}
+			bubble := ui.Rect{X: bx, Y: by + (1-show)*6, W: w, H: 44}
+			p.Shadow(bubble, 10, 0, 4, 14, 0, ui.RGBA(0, 0, 0, map[bool]float32{true: .45, false: .14}[pal.dark]*show))
+			p.Fill(bubble, pal.control.Alpha(show), 10)
+			p.Stroke(bubble, pal.hairline.Alpha(float32(pal.hairline.A)/255*show), 10, 1)
+			p.Text(bubble.X+10, bubble.Y+6, title, 11, pal.secondary.Alpha(show))
+			p.RichText(bubble.X+10, bubble.Y+21, 0, ui.Span{Text: value, Size: 13, Weight: 600, Color: pal.label.Alpha(show)})
+		})
+		ui.Row(c).Padding(0, chartAxis, 0, 0).Justify(ui.SpaceBetween).Children(func() {
+			ticks := 6
+			if last <= first {
+				ticks = 0
+			}
+			for i := 0; i <= ticks; i++ {
+				t := time.UnixMilli(int64(first + (last-first)*float64(i)/float64(max(ticks, 1)))).Local()
+				layout := "15:04"
+				if last-first > 2*86400000 {
+					layout = "01/02"
+				}
+				ui.Text(c, t.Format(layout)).FontSize(10).TextColor(pal.tertiary).FontFeatures("tnum")
+			}
+		})
 	})
 }
+
+const chartAxis = 48 // DIPs right of the plot for value labels
+
 func (a *App) timelinePoints(metric string) []chartPoint {
 	return a.chartPoints("timeline-"+metric, func() []chartPoint {
 		rows := objects(a.data["timeline"])

@@ -63,13 +63,13 @@ func widgetTheme(c *ui.Context) {
 	t.Text = widgetInk
 	c.SetTheme(t)
 }
-func widgetBox(c *ui.Context, x, y, w, h float32) *ui.Element {
+func widgetBox(c *ui.Context, x, y, w, h float32) ui.Element {
 	return ui.Box(c).Absolute().Left(x).Top(y).Size(w, h)
 }
-func widgetText(c *ui.Context, s string, x, y, w, size, line float32, color ui.Color, weight int) *ui.Element {
+func widgetText(c *ui.Context, s string, x, y, w, size, line float32, color ui.Color, weight int) ui.Element {
 	return ui.Text(c, s).Absolute().Left(x).Top(y).Width(w).FontSize(size).FixedLineHeight(line).TextColor(color).FontWeight(weight).NoWrap()
 }
-func widgetIcon(c *ui.Context, name string, x, y, size float32, color ui.Color) *ui.Element {
+func widgetIcon(c *ui.Context, name string, x, y, size float32, color ui.Color) ui.Element {
 	return ui.Icon(c, icons[name]).Absolute().Left(x).Top(y).Size(size, size).TextColor(color)
 }
 func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {

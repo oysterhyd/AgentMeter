@@ -60,31 +60,38 @@ type App struct {
 	selectedRecord                                      int
 	breakdownSearch                                     string
 	brand                                               *ui.Bitmap
-	brandScale                                          float32
-	background                                          backgroundRenderer
-	lastRenderedPage                                    int
-	breakdownSort                                       ui.SortOrder
-	generation                                          uint64
-	requested                                           bool
-	progress                                            Object
-	widget                                              *widgetHost
-	widgetVerified                                      bool
-	widgetMode                                          bool
-	startupApplied                                      bool
-	pageEnterX                                          float32
-	mainScroll                                          ui.ScrollState
-	snapshotKey                                         string
-	snapshotPage                                        int
-	snapshotRevision                                    uint64
-	breakdownCache                                      breakdownCache
-	widgetClosing, reduceMotion                         bool
-	mainFade                                            widgetMotion
-	mainRefreshPending                                  bool
-	windowVerification                                  Object
+	pal                                                 *palette
+	enterIndex, groupRow, commandIndex                  int
+	enterScope                                          string
+	hoverDay                                            string
+	heatmap                                             heatmap
+	// adaptMemory lets the GC budget follow the window's pixel area.
+	adaptMemory                 bool
+	memoryPixels                [2]int
+	lastRenderedPage            int
+	breakdownSort               ui.SortOrder
+	generation                  uint64
+	requested                   bool
+	progress                    Object
+	widget                      *widgetHost
+	widgetVerified              bool
+	widgetMode                  bool
+	startupApplied              bool
+	pageEnterX                  float32
+	mainScroll                  ui.ScrollState
+	snapshotKey                 string
+	snapshotPage                int
+	snapshotRevision            uint64
+	breakdownCache              breakdownCache
+	widgetClosing, reduceMotion bool
+	mainFade                    widgetMotion
+	mainRefreshPending          bool
+	windowVerification          Object
+	reduceTransparency          bool
 }
 
 func NewApp() *App {
-	return &App{data: Object{}, filter: Object{"range": "today"}, recordPage: 1, breakdownPage: 1, callPage: 1, detailPage: 1, selectedCall: -1, selectedRecord: -1, mainFade: widgetMotion{target: 1}, snapshotPage: -1,
+	return &App{pal: &lightPalette, data: Object{}, filter: Object{"range": "today"}, recordPage: 1, breakdownPage: 1, callPage: 1, detailPage: 1, selectedCall: -1, selectedRecord: -1, mainFade: widgetMotion{target: 1}, snapshotPage: -1,
 		startDate: time.Now(), endDate: time.Now(), translations: map[string]string{}, systemTranslations: map[string]string{}, accountDrafts: map[string]string{},
 		priceForm: map[string]string{"model": "", "input": "", "cached": "", "output": "", "cache_write": "0", "effective": "1970-01-01T00:00"}}
 }
@@ -213,7 +220,7 @@ func Run(resources fs.FS) error {
 	}
 	a := NewApp()
 	configureGUIMemory()
-	a.background.adaptMemory = true
+	a.adaptMemory = true
 	mygo.App.SetVersion(appVersion)
 	icon, _ := fs.ReadFile(resources, "assets/icon.png")
 	// Use the SDK's native updater: manual checks only, no webview runtime.
@@ -237,12 +244,9 @@ func Run(resources fs.FS) error {
 		}
 	})
 	mygo.App.WhenReady(func() {
-		scale := float32(1)
-		for _, display := range mygo.Screen.Displays() {
-			scale = max(scale, float32(display.ScaleFactor))
-		}
-		a.prepareBrand(scale)
+		a.prepareBrand()
 		a.win = mygo.NewWindow(mainWindowOptions(mygo.Screen.PrimaryDisplay().WorkArea, o.Hidden || mygo.App.WasOpenedAtLogin(), ui.View(a.View)))
+		mygo.App.OnQuit(updater.OnChange(a.win.Invalidate))
 		a.keepWindowVisible()
 		icon, _ := fs.ReadFile(resources, "assets/icon.png")
 		_ = a.win.SetIcon(icon)
@@ -645,6 +649,7 @@ func (a *App) smoke() {
 			fmt.Fprintf(os.Stderr, "monitor: chart-profile end %s\n", id)
 		}
 	}
+	a.smokeAppearance()
 	a.smokeCalls()
 	if a.options.SmokeWidget {
 		a.updateWait(func() { a.toggleWidget() })

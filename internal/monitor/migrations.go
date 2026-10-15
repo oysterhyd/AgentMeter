@@ -89,5 +89,10 @@ func (s *Store) migrateLegacy() error {
 	if e = s.exec("CREATE INDEX IF NOT EXISTS quota_account_window_time ON quotas(account,bucket,slot,ts DESC)"); e != nil {
 		return e
 	}
+	// Lets the model filter list skip from one distinct model to the next
+	// instead of reading every usage row.
+	if e = s.exec("CREATE INDEX IF NOT EXISTS usage_model_account ON usage(model,account)"); e != nil {
+		return e
+	}
 	return nil
 }

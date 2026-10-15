@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -63,7 +62,7 @@ func TestRecentActivityContainsAllEightDays(t *testing.T) {
 			lastY := float32(-1)
 			for i := 16; i >= 9; i-- {
 				row, ok := tt.Find(fmt.Sprintf("2026-10-%02d", i))
-				if !ok || row.X < card.X+19 || row.X+row.W > card.X+card.W-19 || row.Y < lastY || row.Y+row.H > card.Y+card.H-19 {
+				if !ok || row.X < card.X+11 || row.X+row.W > card.X+card.W-11 || row.Y < lastY || row.Y+row.H > card.Y+card.H-17 {
 					t.Fatalf("day %d outside padded card or overlapping: row=%+v card=%+v", i, row, card)
 				}
 				lastY = row.Y + row.H
@@ -94,7 +93,7 @@ func TestActivityHoursFollowPointerAndKeyboard(t *testing.T) {
 	r, _ := tt.Find("活跃时段柱状图")
 	before := bytes.Clone(tt.Image().Pix)
 	tt.Move(r.X+r.W*3.5/24, r.Y+40)
-	if !tt.HasText("03:00–04:00 · 4K tokens") || !tt.HasText("4 用量记录") || bytes.Equal(before, tt.Image().Pix) {
+	if !tt.HasText("03:00–04:00 · 4K tokens · 4 用量记录") || bytes.Equal(before, tt.Image().Pix) {
 		t.Fatal("hour 3 hover feedback missing", tt.Texts())
 	}
 	captureActivity(t, tt, "activity-hours-hover")
@@ -128,54 +127,44 @@ func TestCalendarPointerKeepsHitTargetsAndFutureDatesDisabled(t *testing.T) {
 	a.data["activity"] = activityFixture()
 	tt := ui.NewTester(func(c *ui.Context) { a.skin(c); a.activity(c, true) }, 1000, 400)
 	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
-	label := "2026-10-15 · 150,000 tokens"
-	r, ok := tt.Find(label)
+	tt.Frame()
+	grid, ok := tt.Find("活动热力图")
 	if !ok {
-		t.Fatal("calendar day missing", tt.Texts())
+		t.Fatal("calendar missing", tt.Texts())
+	}
+	h := &a.heatmap
+	size := h.cellSize(grid.W)
+	point := func(date string) (float32, float32) {
+		x, y := h.center(h.index(date), size)
+		return grid.X + x, grid.Y + y
 	}
 	before := bytes.Clone(tt.Image().Pix)
-	tt.Move(r.X+r.W/2, r.Y+r.H/2)
-	if bytes.Equal(before, tt.Image().Pix) {
-		t.Fatal("calendar has no pointer response")
+	x, y := point("2026-10-15")
+	tt.Move(x, y)
+	if !tt.HasText("2026-10-15 · 150,000 tokens") || bytes.Equal(before, tt.Image().Pix) {
+		t.Fatal("calendar has no pointer response", tt.Texts())
 	}
-	if next, _ := tt.Find(label); next != r {
+	if next, _ := tt.Find("活动热力图"); next != grid {
 		t.Fatal("calendar hover changed hit target")
 	}
 	captureActivity(t, tt, "activity-calendar-hover")
-	if err := tt.Click(label); err != nil || a.selectedDay != "2026-10-15" {
-		t.Fatal("calendar selection", err)
+	tt.ClickAt(x, y)
+	if a.selectedDay != "2026-10-15" || !tt.HasText("查看当天记录") {
+		t.Fatal("calendar selection")
 	}
-	if err := tt.Click("2026-10-17 · 0 tokens"); err != nil || a.selectedDay != "2026-10-15" {
-		t.Fatal("future day selectable", err)
+	x, y = point("2026-10-17")
+	tt.ClickAt(x, y)
+	if a.selectedDay != "2026-10-15" {
+		t.Fatal("future day selectable")
 	}
-	tt.Move(0, 390)
+	tt.ClickAt(grid.X+heatLabels+2, grid.Y+4)
+	tt.Move(2, 390)
+	tt.Key(0, ui.KeyLeft)
+	if !tt.HasText("2026-10-08 ·") {
+		t.Fatal("keyboard walk", tt.Texts())
+	}
 	tt.SetDark(true)
 	if !tt.HasText("2026-10-15") {
 		t.Fatal("dark calendar lost selection")
-	}
-}
-
-func TestActivityPaintMotionRetargetsAndReducesMotion(t *testing.T) {
-	m := widgetMotion{target: 0}
-	var shown float32
-	target := float32(1)
-	tt := ui.NewTester(func(c *ui.Context) {
-		ui.Box(c).Size(30, 30).Draw(func(p *ui.Painter, r ui.Rect) {
-			shown = paintMotion(c, p, &m, target, motionFill)
-		})
-	}, 50, 50)
-	if shown >= 1 || !m.active(time.Now()) {
-		t.Fatal("entrance skipped its intermediate state")
-	}
-	previous := m.value(time.Now())
-	target = 0
-	tt.Frame()
-	if m.from < previous || m.from >= 1 || m.target != 0 {
-		t.Fatal("reversal did not preserve current value", m)
-	}
-	target = 1
-	tt.SetPreferences(ui.Preferences{ReduceMotion: true})
-	if shown != 1 || m.active(time.Now()) {
-		t.Fatal("reduced motion did not settle")
 	}
 }

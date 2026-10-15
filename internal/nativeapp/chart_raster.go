@@ -55,7 +55,17 @@ func (r *chartRenderer) raster(key chartImageKey) *image.RGBA {
 			z.LineTo(poly[0][0], baseline)
 			z.ClosePath()
 		}
-		paint(key.accent.Alpha(.08))
+		top := float32(h)
+		for i, poly := range polys {
+			if len(r.segments[i]) > 1 {
+				for _, point := range poly {
+					top = min(top, point[1])
+				}
+			}
+		}
+		g := chartFill(key.accent)
+		z.Draw(img, img.Bounds(), chartGradient{top, chartQuarter(y(0) * scale), g.From, g.To}, image.Point{})
+		z.Reset(w, h)
 	}
 	// Match the existing reset hint, whose Painter.Line uses axis-aligned
 	// rectangles; a quota reset remains a dotted discontinuity.
@@ -132,6 +142,28 @@ func (r *chartRenderer) raster(key chartImageKey) *image.RGBA {
 		paint(key.accent)
 	}
 	return img
+}
+
+// chartFill fades the area under a curve from its peak down to nothing.
+func chartFill(accent ui.Color) ui.LinearGradient {
+	return ui.LinearGradient{From: accent.Alpha(.24), To: accent.Alpha(0), Angle: 180}
+}
+
+// chartGradient is the vertical gradient source for the rasterized area.
+type chartGradient struct {
+	top, bottom float32
+	from, to    ui.Color
+}
+
+func (g chartGradient) ColorModel() color.Model { return color.NRGBAModel }
+func (g chartGradient) Bounds() image.Rectangle { return image.Rect(-1e9, -1e9, 1e9, 1e9) }
+func (g chartGradient) At(_, y int) color.Color {
+	t := float32(0)
+	if g.bottom > g.top {
+		t = max(0, min(1, (float32(y)+.5-g.top)/(g.bottom-g.top)))
+	}
+	mix := func(a, b uint8) uint8 { return uint8(float32(a) + (float32(b)-float32(a))*t + .5) }
+	return color.NRGBA{R: g.from.R, G: g.from.G, B: g.from.B, A: mix(g.from.A, g.to.A)}
 }
 
 func chartQuarter(v float32) float32 { return float32(math.Round(float64(v*4))) / 4 }
