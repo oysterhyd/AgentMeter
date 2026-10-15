@@ -71,7 +71,7 @@ func TestSettingsShowsVersionAndUpdateControl(t *testing.T) {
 	a := fixtureApp(t)
 	a.page = 4
 	tt := ui.NewTester(a.View, 1380, 960)
-	if !tt.HasText("软件更新") || !tt.HasText("检查更新") || !tt.HasText("当前版本 "+appVersion) {
+	if !tt.HasText("软件更新") || !tt.HasText("检查更新") || !tt.HasText("自动检查更新") || !tt.HasText("自动下载更新") || !tt.HasText("当前版本 "+appVersion) {
 		t.Fatal(tt.Texts())
 	}
 }

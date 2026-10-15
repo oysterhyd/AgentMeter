@@ -92,10 +92,24 @@ func (a *App) generalSettings(c *ui.Context, settings Object) {
 			}
 		})
 	})
-	a.group(c, a.tr("软件更新"), a.tr("手动检查 GitHub 正式版本，下载后验证签名。更新保留监测数据与设置。"), func() {
+	a.group(c, a.tr("软件更新"), a.tr("检查 GitHub 正式版本，下载后验证签名。更新保留监测数据与设置。"), func() {
 		a.row(c, "arrow-circle-down-fill", p.blue, a.tr("当前版本")+" "+appVersion, "", func() {
 			if a.button(c, a.tr("检查更新"), "").Clicked() {
 				updater.CheckForUpdates()
+			}
+		})
+		automaticChecks, automaticDownloads := false, false
+		if a.win != nil {
+			automaticChecks, automaticDownloads = updater.AutomaticChecks(), updater.AutomaticDownloads()
+		}
+		a.row(c, "arrows-clockwise", p.green, a.tr("自动检查更新"), a.tr("每天检查一次；默认关闭，可随时手动检查"), func() {
+			if ui.Switch(c, &automaticChecks).Label(a.tr("自动检查更新")).Disabled(a.options.Offline || a.win == nil).Changed() {
+				updater.SetAutomaticChecks(automaticChecks)
+			}
+		})
+		a.row(c, "arrow-circle-down-fill", p.indigo, a.tr("自动下载更新"), a.tr("后台下载并验证签名，下次启动时应用更新"), func() {
+			if ui.Switch(c, &automaticDownloads).Label(a.tr("自动下载更新")).Disabled(a.options.Offline || a.win == nil || !automaticChecks).Changed() {
+				updater.SetAutomaticDownloads(automaticDownloads)
 			}
 		})
 	})

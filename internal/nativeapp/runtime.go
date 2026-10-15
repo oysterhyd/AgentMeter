@@ -246,6 +246,7 @@ func Run(resources fs.FS) error {
 	mygo.App.WhenReady(func() {
 		a.prepareBrand()
 		a.win = mygo.NewWindow(mainWindowOptions(mygo.Screen.PrimaryDisplay().WorkArea, o.Hidden || mygo.App.WasOpenedAtLogin(), ui.View(a.View)))
+		mygo.App.OnQuit(updater.OnChange(a.win.Invalidate))
 		a.keepWindowVisible()
 		icon, _ := fs.ReadFile(resources, "assets/icon.png")
 		_ = a.win.SetIcon(icon)
