@@ -8,13 +8,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-var widgetInk = ui.Hex("#10243f")
-var widgetMuted = ui.Hex("#506783")
-var widgetGreen = ui.Hex("#008f80")
+// The widget is drawn with the app's design system: the same palette, type
+// ramp, grouped surfaces and badges, in light or dark like the app.
 
-// The original CSS surface, with its three gradient layers and alpha values.
-var widgetGlass = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 536 356"><defs><linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eff7ff" stop-opacity=".91"/><stop offset="1" stop-color="#dbe9f6" stop-opacity=".85"/></linearGradient><radialGradient id="cyan" cx="0" cy="0" r=".8485" gradientTransform="matrix(1 0 0 1 0 0)"><stop stop-color="#c2f6ff" stop-opacity=".631"/><stop offset="1" stop-color="#c2f6ff" stop-opacity="0"/></radialGradient><radialGradient id="purple" cx="1" cy=".15" r=".9192"><stop stop-color="#d9ccf5" stop-opacity=".612"/><stop offset="1" stop-color="#d9ccf5" stop-opacity="0"/></radialGradient></defs><rect width="536" height="356" fill="url(#base)"/><rect width="536" height="356" fill="url(#purple)"/><rect width="536" height="356" fill="url(#cyan)"/></svg>`))
-var widgetGlint = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112"><defs><radialGradient id="white" cx=".3" cy=".08" r=".6"><stop stop-color="#ffffff" stop-opacity=".79"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient><radialGradient id="mint" cx=".8" cy=".95" r=".67"><stop stop-color="#9fdfdb" stop-opacity=".4"/><stop offset="1" stop-color="#9fdfdb" stop-opacity="0"/></radialGradient></defs><rect width="112" height="112" fill="url(#mint)"/><rect width="112" height="112" fill="url(#white)"/></svg>`))
+// widgetLight is the soft highlight that follows the pointer over a tile.
 var widgetLight = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><radialGradient id="light"><stop stop-color="#ffffff" stop-opacity=".78"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs><rect width="100" height="100" fill="url(#light)"/></svg>`))
 
 type widgetPainter struct {
@@ -56,12 +53,29 @@ func (p *widgetPainter) release() {
 	*p = widgetPainter{model: p.model, brand: p.brand, dirty: true}
 	p.model.dirty = true
 }
-func widgetTheme(c *ui.Context) {
+func (m *widgetModel) palette() *palette {
+	if m.Dark {
+		return &darkPalette
+	}
+	return &lightPalette
+}
+
+// metricColor is each tile's system color, matching the app's KPI tiles.
+func (m *widgetModel) metricColor(i int) ui.Color {
+	p := m.palette()
+	return [...]ui.Color{p.green, p.blue, p.orange, p.purple}[i%4]
+}
+func (p *widgetPainter) theme(c *ui.Context) *palette {
+	pal := p.model.palette()
 	t := ui.LightTheme()
+	if pal.dark {
+		t = ui.DarkTheme()
+	}
 	t.Background = ui.Transparent
-	t.Font = "Segoe UI Variable, Segoe UI, Microsoft YaHei UI"
-	t.Text = widgetInk
+	t.Font = fontText
+	t.Text = pal.label
 	c.SetTheme(t)
+	return pal
 }
 func widgetBox(c *ui.Context, x, y, w, h float32) ui.Element {
 	return ui.Box(c).Absolute().Left(x).Top(y).Size(w, h)
@@ -71,6 +85,26 @@ func widgetText(c *ui.Context, s string, x, y, w, size, line float32, color ui.C
 }
 func widgetIcon(c *ui.Context, name string, x, y, size float32, color ui.Color) ui.Element {
 	return ui.Icon(c, icons[name]).Absolute().Left(x).Top(y).Size(size, size).TextColor(color)
+}
+
+// widgetBadge is the app's badge: a white glyph on a system-color tile.
+func widgetBadge(c *ui.Context, name string, x, y, size float32, color ui.Color) ui.Element {
+	b := widgetBox(c, x, y, size, size).Radius(size * .27).Center().
+		LinearGradient(ui.LinearGradient{From: color.Mix(ui.RGB(255, 255, 255), .16), To: color, Angle: 180})
+	b.Children(func() { ui.Icon(c, icons[name]).Size(size*.6, size*.6).TextColor(ui.RGB(255, 255, 255)) })
+	return b
+}
+
+// widgetStatus is the collection state, as the app's tinted pill.
+func (m *widgetModel) status(now time.Time, short bool) (string, ui.Color) {
+	p := m.palette()
+	if m.collecting(now) {
+		if short {
+			return m.t("实时", "Live"), p.green
+		}
+		return m.t("采集中", "Live"), p.green
+	}
+	return m.t("等待中", "Waiting"), p.orange
 }
 func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {
 	m := p.model
@@ -171,26 +205,36 @@ func (p *widgetPainter) render(now time.Time, scale float32) *image.RGBA {
 	return p.frameImage
 }
 func (p *widgetPainter) frameView(c *ui.Context) {
-	widgetTheme(c)
+	pal := p.theme(c)
 	m := p.model
 	now := m.clock
 	r := m.glass(now)
 	shape := m.shape.value(now)
 	// Native window alpha composes visibility without rebuilding this scene.
-	alpha, size := float32(1), float32(1)
-	radius := (30 + 30*shape) * size
+	alpha := float32(1)
+	// The corner grows with the morph until the surface is the orb's circle.
+	radius := 24 + 36*shape
+	near, shadow := ui.RGBA(0, 0, 0, .06), ui.RGBA(0, 0, 0, .16)
+	edge, highlight := ui.RGBA(0, 0, 0, .08), ui.RGBA(255, 255, 255, .7)
+	surface := ui.LinearGradient{From: ui.RGBA(252, 252, 253, .95), To: ui.RGBA(242, 242, 246, .93), Angle: 180}
+	if pal.dark {
+		near, shadow = ui.RGBA(0, 0, 0, .25), ui.RGBA(0, 0, 0, .45)
+		edge, highlight = ui.RGBA(255, 255, 255, .12), ui.RGBA(255, 255, 255, .05)
+		surface = ui.LinearGradient{From: ui.RGBA(40, 40, 43, .94), To: ui.RGBA(26, 26, 28, .95), Angle: 180}
+	}
+	if m.ReduceTransparency {
+		surface = ui.LinearGradient{From: pal.bg, To: pal.bg}
+	}
 	outer := widgetBox(c, r.X, r.Y, r.W, r.H).Radius(radius).Opacity(alpha)
-	outer.Draw(func(p *ui.Painter, r ui.Rect) { p.Shadow(r, radius, 0, 5, 11, 0, ui.Hex("#19335730")) })
-	outer.Children(func() {
-		if m.ReduceTransparency {
-			ui.Box(c).Fill().Background(ui.Hex("#e4edf8"))
-		} else {
-			ui.Image(c, widgetGlass).Fill().Fit(ui.FillBox)
-		}
-	}).Border(1, ui.Hex("#ffffffde")).Clip()
-	// Inner top/bottom highlights are independent from the drop shadow.
+	outer.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Shadow(r, radius, 0, 1, 3, 0, near)
+		p.Shadow(r, radius, 0, 5, 11, 0, shadow)
+		p.FillGradient(r, surface, radius)
+		p.Stroke(r, edge, radius, 1)
+	})
+	// A light inner rim, as on Apple's materials.
 	widgetBox(c, r.X+1, r.Y+1, r.W-2, r.H-2).Radius(max(0, radius-1)).Opacity(alpha).Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Stroke(r, ui.Hex("#ffffff55"), max(0, radius-1), 1)
+		p.Stroke(r, highlight, max(0, radius-1), 1)
 	})
 	elapsed := float32(now.Sub(m.shape.start)) / float32(time.Millisecond)
 	cardOpacity, orbOpacity, contentScale, orbScale := float32(1), float32(0), float32(1), float32(.65)
@@ -215,13 +259,13 @@ func (p *widgetPainter) frameView(c *ui.Context) {
 		}
 	}
 	if cardOpacity > 0 {
-		w, h := 536*contentScale*size, 356*contentScale*size
+		w, h := 536*contentScale, 356*contentScale
 		x := 12 + 476*(1-contentScale)
 		y := 12 + 60*(1-contentScale)
 		ui.Image(c, p.filteredCard).Absolute().Left(x).Top(y+7*(1-alpha)).Size(w, h).Fit(ui.FillBox).Opacity(cardOpacity * alpha)
 	}
 	if orbOpacity > 0 {
-		s := 120 * orbScale * size
+		s := 120 * orbScale
 		box := widgetBox(c, 428+(120-s)/2, 12+(120-s)/2+7*(1-alpha), s, s).Opacity(orbOpacity * alpha)
 		box.Children(func() { ui.Image(c, p.orbBitmap).Fill().Fit(ui.FillBox) })
 	}
@@ -233,12 +277,15 @@ func (p *widgetPainter) frameView(c *ui.Context) {
 			focus = widgetRegionRect(m.focus)
 		}
 		radius := float32(12)
-		if m.Collapsed {
+		switch {
+		case m.Collapsed:
 			radius = 63
-		} else if m.focus >= 1 && m.focus <= 5 {
+		case m.focus == 1:
 			radius = 21
+		case m.focus >= 2 && m.focus <= 5:
+			radius = 17
 		}
-		widgetBox(c, focus.X-3, focus.Y-3, focus.W+6, focus.H+6).Radius(radius).Border(2, ui.Hex("#008d88")).Opacity(alpha)
+		widgetBox(c, focus.X-3, focus.Y-3, focus.W+6, focus.H+6).Radius(radius).Border(2, pal.accent).Opacity(alpha)
 	}
 }
 func widgetEase(t float32) float32 {
@@ -261,63 +308,62 @@ func widgetEase(t float32) float32 {
 	u := 1 - m
 	return 3*u*u*m*.1 + 3*u*m*m + m*m*m
 }
+
+// panel is a tile on the widget, the app's card: white (raised gray in dark
+// mode), lifted by a soft shadow that deepens under the pointer.
 func (p *widgetPainter) panel(c *ui.Context, r ui.Rect, radius float32, index int) {
 	m := p.model
+	pal := m.palette()
 	hover := float32(0)
 	if index >= 0 {
 		hover = m.hoverMotion[index].value(m.clock)
 	}
-	bg1, bg2 := ui.Hex("#ffffffa8"), ui.Hex("#f4faff60")
-	if m.ReduceTransparency {
-		bg1, bg2 = ui.Hex("#f1f6fc"), ui.Hex("#f1f6fc")
-	}
-	box := widgetBox(c, r.X, r.Y, r.W, r.H).Radius(radius).Border(1, ui.Hex("#ffffff9c"))
+	box := widgetBox(c, r.X, r.Y, r.W, r.H).Radius(radius)
 	box.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Shadow(r, radius, 0, 2+7*hover, 3+15*hover, 0, ui.Hex("#346580").Alpha(.02+.10*hover))
-		p.FillGradient(r, ui.LinearGradient{From: bg1, To: bg2, Angle: 135}, radius)
+		if pal.dark {
+			p.Shadow(r, radius, 0, 2+6*hover, 6+12*hover, 0, ui.RGBA(0, 0, 0, .18+.22*hover))
+		} else {
+			p.Shadow(r, radius, 0, 1, 2, 0, ui.RGBA(0, 0, 0, .04))
+			p.Shadow(r, radius, 0, 3+6*hover, 12+12*hover, 0, ui.RGBA(0, 0, 0, .05+.06*hover))
+		}
+		p.Fill(r, pal.card, radius)
+		if pal.dark {
+			p.Stroke(r, pal.hairline, radius, 1)
+		}
 	})
 	if hover > 0 {
 		size := max(r.W, r.H) * 1.6
 		x, y := m.light[index][0]*r.W-size/2, m.light[index][1]*r.H-size/2
+		glow := float32(.5)
+		if pal.dark {
+			glow = .1
+		}
 		box.Clip().Children(func() {
-			ui.Image(c, widgetLight).Absolute().Left(x).Top(y).Size(size, size).Fit(ui.FillBox).Opacity(.55 * hover)
+			ui.Image(c, widgetLight).Absolute().Left(x).Top(y).Size(size, size).Fit(ui.FillBox).Opacity(glow * hover)
 		})
 	}
 }
 func (p *widgetPainter) cardView(c *ui.Context) {
-	widgetTheme(c)
+	pal := p.theme(c)
 	m := p.model
 	now := m.clock
 	if p.brand != nil {
-		ui.Image(c, p.brand).Absolute().Left(18).Top(20.5).Size(40, 40).Radius(12).Shadow(0, 4, 10, 0, ui.Hex("#698fa32b"))
+		ui.Image(c, p.brand).Absolute().Left(18).Top(20.5).Size(40, 40).Radius(10).Shadow(0, 2, 6, 0, ui.RGBA(0, 0, 0, .14))
 	}
-	widgetText(c, "Codex Monitor", 68, 16.367, 290, 20, 24, widgetInk, 700).LetterSpacing(-.6)
-	widgetText(c, m.t("本机用量 · 全部账号", "Local usage · all accounts"), 68, 45.7, 300, 11, 17.6, widgetMuted, 400)
-	live := m.collecting(now)
-	status := m.t("等待中", "Waiting")
-	color := ui.Hex("#795c25")
-	dot := ui.Hex("#bc9444")
-	if live {
-		status = m.t("采集中", "Live")
-		color = ui.Hex("#00776a")
-		dot = ui.Hex("#00a58a")
-	}
-	statusW := float32(64)
-	if m.en() {
-		statusW = 57
-		if !live {
-			statusW = 78
-		}
-	}
-	sx := 482 - statusW - 10
-	widgetBox(c, sx, 25, statusW, 32).Radius(20).Background(ui.Hex("#ffffff60")).Border(1, ui.Hex("#ffffff80"))
-	widgetBox(c, sx+10, 38, 6, 6).Radius(3).Background(dot).Shadow(0, 0, 0, 3, ui.Hex("#5bdbba32"))
-	widgetText(c, status, sx+22, 32.2, statusW-25, 11, 17.6, color, 400)
-	menu := widgetBox(c, 482, 22.5, 36, 36).Radius(18).Background(ui.Hex("#ffffff60"))
+	widgetText(c, "Codex Monitor", 68, 19, 290, 18, 22, pal.label, 650).Font(fontDisplay).LetterSpacing(-.3)
+	widgetText(c, m.t("本机用量 · 全部账号", "Local usage · all accounts"), 68, 44.7, 300, 12, 17.6, pal.secondary, 400)
+	status, color := m.status(now, false)
+	ui.Row(c).Absolute().Right(64).Top(28.5).Height(24).Padding(0, 10).Gap(6).Radius(999).AlignItems(ui.Center).
+		Background(color.Alpha(.14)).Children(func() {
+		ui.Box(c).Size(6, 6).Radius(3).Background(color)
+		ui.Text(c, status).FontSize(11).FontWeight(600).TextColor(color).NoWrap()
+	})
+	menu, ink := pal.fill, pal.secondary
 	if m.hover == 1 {
-		menu.Background(ui.Hex("#ffffffdc")).Shadow(0, 3, 12, 0, ui.Hex("#6589a62b"))
+		menu, ink = pal.fill.Mix(pal.label, .08), pal.label
 	}
-	widgetIcon(c, "dots", 487, 27.5, 26, widgetInk)
+	widgetBox(c, 484, 24.5, 32, 32).Radius(16).Background(menu)
+	widgetIcon(c, "dots", 490, 30.5, 20, ink)
 	for i := 0; i < 4; i++ {
 		r := widgetMetricRect(i)
 		hover := m.hoverMotion[i].value(now)
@@ -326,107 +372,112 @@ func (p *widgetPainter) cardView(c *ui.Context) {
 		}
 		ui.Image(c, p.metricBitmaps[i]).Absolute().Left(r.X-12-20).Top(r.Y-12-20-3*hover).Size(159, 160).Fit(ui.FillBox)
 	}
-	p.panel(c, ui.Rect{X: 18, Y: 211, W: 500, H: 105}, 19, 4)
-	widgetBox(c, 181, 225, 1, 77).Background(ui.Hex("#6c90bb20"))
-	widgetBox(c, 32, 225, 26, 26).Radius(8).Background(ui.Hex("#4ddbc32d"))
-	widgetIcon(c, "cube", 35, 228, 20, widgetGreen)
-	widgetText(c, m.t("今日 Token", "Today’s tokens"), 65, 228.4, 126, 12, 19.2, widgetMuted, 400)
-	widgetText(c, widgetCompact(m.Data["total"]), 32, 254, 146, 29, 31.9, widgetInk, 700).LetterSpacing(-1).FontFeatures("tnum")
-	change := m.t("较昨日 —", "vs yest. —")
-	if m.Data["change"] != nil {
-		change = m.t("较昨日 ", "vs yest. ") + fmt.Sprintf("%+.1f%%", number(m.Data["change"])*100)
-	}
-	ui.Row(c).Absolute().Left(32).Top(293.9).Height(17.6).Gap(2).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, change).FontSize(11).FixedLineHeight(17.6).TextColor(widgetMuted).NoWrap()
-		if m.Data["change"] != nil {
-			arrow := ui.Icon(c, icons["up-right"]).Size(13, 13).TextColor(ui.Hex("#009f8a"))
-			if number(m.Data["change"]) < 0 {
+	p.panel(c, ui.Rect{X: 18, Y: 211, W: 500, H: 105}, 14, 4)
+	widgetBox(c, 181, 227, 1, 73).Background(pal.separator)
+	widgetBadge(c, "stack-fill", 32, 225, 22, pal.blue)
+	widgetText(c, m.t("今日 Token", "Today’s tokens"), 62, 226.4, 116, 12, 19.2, pal.secondary, 500)
+	widgetText(c, widgetCompact(m.Data["total"]), 32, 254, 146, 30, 34, pal.label, 650).Font(fontDisplay).LetterSpacing(-.6).FontFeatures("tnum")
+	ui.Row(c).Absolute().Left(32).Top(292.9).Height(17.6).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, m.t("较昨日", "vs yest.")).FontSize(11).FixedLineHeight(17.6).TextColor(pal.tertiary).NoWrap()
+		if m.Data["change"] == nil {
+			ui.Text(c, "—").FontSize(11).TextColor(pal.tertiary)
+			return
+		}
+		change := number(m.Data["change"])
+		tint := pal.green
+		if change < 0 {
+			tint = pal.red
+		}
+		ui.Row(c).Gap(1).AlignItems(ui.Center).Children(func() {
+			arrow := ui.Icon(c, icons["up-right"]).Size(12, 12).TextColor(tint)
+			if change < 0 {
 				arrow.Rotate(90)
 			}
-		}
+			ui.Text(c, fmt.Sprintf("%+.1f%%", change*100)).FontSize(11).FontWeight(600).FontFeatures("tnum").TextColor(tint).NoWrap()
+		})
 	})
-	heading := ui.Row(c).Absolute().Left(195).Top(225).Height(19.2).Gap(4).AlignItems(ui.Center)
-	heading.Children(func() {
-		ui.Text(c, m.t("Token 使用趋势", "Token usage")).FontSize(12).FontWeight(500).TextColor(widgetMuted)
-		ui.Text(c, m.t("(近 24 小时)", "(last 24h)")).FontSize(10).TextColor(widgetMuted)
+	ui.Row(c).Absolute().Left(195).Top(225).Height(19.2).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, m.t("Token 使用趋势", "Token usage")).FontSize(13).FontWeight(600).Font(fontDisplay).TextColor(pal.label)
+		ui.Text(c, m.t("近 24 小时", "Last 24h")).FontSize(11).TextColor(pal.tertiary)
 	})
 	timeline := objects(m.Data["timeline"])
-	chart := ui.Rect{X: 195, Y: 252.2, W: 285, H: 43}
-	p.spark(c, timeline, chart, true)
+	p.spark(c, timeline, ui.Rect{X: 195, Y: 252.2, W: 280, H: 43}, true, pal.blue)
 	maxValue := 0.
 	for _, point := range timeline {
 		maxValue = max(maxValue, number(point["total"]))
 	}
-	widgetText(c, widgetCompact(maxValue), 482, 249.2, 30, 9, 14.4, widgetMuted, 400)
+	widgetText(c, widgetCompact(maxValue), 480, 246.2, 36, 10, 14.4, pal.tertiary, 400).FontFeatures("tnum")
 	for j, i := range []int{0, 48, 95} {
 		label := "—"
 		if i < len(timeline) {
 			label = parseTime(timeline[i]["time"]).Local().Format("15:04")
 		}
-		x := 195 + float32(j)*142.5
+		x := 195 + float32(j)*140
 		if j == 1 {
 			x -= 14
 		}
 		if j == 2 {
 			x -= 28
 		}
-		widgetText(c, label, x, 299.2, 34, 9, 14.4, widgetMuted, 400)
+		widgetText(c, label, x, 298.2, 34, 10, 14.4, pal.tertiary, 400).FontFeatures("tnum")
 	}
-	widgetIcon(c, "clock", 19, 330.5, 16, widgetMuted)
+	widgetIcon(c, "clock", 20, 331.5, 14, pal.tertiary)
 	footer := m.t("最后更新：", "Updated: ") + "—"
 	if last := parseTime(obj(m.Data["scan"])["lastScan"]); !last.IsZero() {
 		footer = m.t("最后更新：", "Updated: ") + last.Local().Format("01/02 15:04")
 	}
+	footerColor := pal.secondary
 	if m.Error != "" {
 		footer = m.t("连接中断 · 自动重试", "Disconnected · retrying")
+		footerColor = pal.orange
 	}
-	widgetText(c, footer, 40, 329.7, 340, 11, 17.6, widgetMuted, 400)
+	widgetText(c, footer, 40, 329.7, 340, 11, 17.6, footerColor, 400).FontFeatures("tnum")
 	refresh := m.t("自动刷新中", "Auto-refreshing")
 	if m.Busy {
 		refresh = m.t("刷新中", "Refreshing")
 	}
-	refreshW := float32(91)
-	if m.en() {
-		refreshW = 120
-	}
-	x := 517 - refreshW
+	button := ui.Row(c).Absolute().Right(19).Top(325).Height(27).Padding(0, 9).Gap(5).Radius(8).AlignItems(ui.Center)
 	if m.hover == 6 {
-		widgetBox(c, x, 325, refreshW, 27).Radius(9).Background(ui.Hex("#ffffffa0"))
+		button.Background(pal.fill)
 	}
-	spin := widgetIcon(c, "refresh", x+6, 330.5, 16, widgetMuted)
-	if m.Busy && !m.ReduceMotion {
-		spin.Rotate(float32(now.UnixMilli()%1200) * .3)
-	}
-	label := widgetText(c, refresh, x+27, 329.7, refreshW-27, 11, 17.6, widgetMuted, 400)
-	if m.Busy {
-		spin.Opacity(.5)
-		label.Opacity(.5)
-	}
+	button.Children(func() {
+		spin := ui.Icon(c, icons["refresh"]).Size(14, 14).TextColor(pal.secondary)
+		if m.Busy && !m.ReduceMotion {
+			spin.Rotate(float32(now.UnixMilli()%1200) * .3)
+		}
+		label := ui.Text(c, refresh).FontSize(11).FixedLineHeight(17.6).TextColor(pal.secondary).NoWrap()
+		if m.Busy {
+			spin.Opacity(.5)
+			label.Opacity(.5)
+		}
+	})
 }
 func (p *widgetPainter) orbView(c *ui.Context) {
-	widgetTheme(c)
+	pal := p.theme(c)
 	m := p.model
-	widgetBox(c, 4, 4, 112, 112).Radius(56).Clip().Children(func() { ui.Image(c, widgetGlint).Fill().Fit(ui.FillBox) }).Border(1, ui.Hex("#ffffffb3"))
-	widgetIcon(c, "cube", 50.5, 17.333, 19, widgetGreen)
-	widgetText(c, m.t("今日 Token", "Today’s tokens"), 0, 39.333, 120, 10, 16, widgetMuted, 400).TextAlign(ui.Center)
-	widgetText(c, widgetCompact(m.Data["total"]), 0, 55.333, 120, 23, 32.2, widgetInk, 700).LetterSpacing(-.8).FontFeatures("tnum").TextAlign(ui.Center)
-	live := m.collecting(m.clock)
-	status := m.t("等待中", "Waiting")
-	color := ui.Hex("#795c25")
-	dot := ui.Hex("#bc9444")
-	if live {
-		status = m.t("实时", "Live")
-		color = ui.Hex("#00776a")
-		dot = ui.Hex("#00a58a")
-	}
-	x := float32(40)
-	if !live {
-		x = 35
-	}
-	widgetBox(c, x, 92.533, 4, 4).Radius(2).Background(dot).Shadow(0, 0, 0, 3, ui.Hex("#5bdbba32"))
-	widgetText(c, status, x+9, 87.333, 50, 9, 14.4, color, 400)
+	widgetBox(c, 4, 4, 112, 112).Radius(56).Draw(func(p *ui.Painter, r ui.Rect) {
+		if !pal.dark {
+			p.Shadow(r, 56, 0, 1, 3, 0, ui.RGBA(0, 0, 0, .06))
+		}
+		p.Fill(r, pal.card, 56)
+		if pal.dark {
+			p.Stroke(r, pal.hairline, 56, 1)
+		}
+	})
+	widgetBadge(c, "stack-fill", 49, 15, 22, pal.blue)
+	widgetText(c, m.t("今日 Token", "Today’s tokens"), 0, 40.3, 120, 10, 16, pal.secondary, 500).TextAlign(ui.Center)
+	widgetText(c, widgetCompact(m.Data["total"]), 0, 55.3, 120, 23, 30, pal.label, 650).Font(fontDisplay).LetterSpacing(-.5).FontFeatures("tnum").TextAlign(ui.Center)
+	status, color := m.status(m.clock, true)
+	ui.Row(c).Absolute().Left(0).Top(87).Width(120).Height(16).Gap(4).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
+		ui.Box(c).Size(5, 5).Radius(2.5).Background(color)
+		ui.Text(c, status).FontSize(10).FontWeight(600).TextColor(color).NoWrap()
+	})
 }
-func (p *widgetPainter) spark(c *ui.Context, points []Object, r ui.Rect, large bool) {
+
+// spark is the app's area chart in miniature: hairline rules, a line in the
+// series color and the same fading fill.
+func (p *widgetPainter) spark(c *ui.Context, points []Object, r ui.Rect, large bool, color ui.Color) {
+	pal := p.model.palette()
 	box := widgetBox(c, r.X, r.Y, r.W, r.H)
 	if !large {
 		box.Clip()
@@ -437,16 +488,10 @@ func (p *widgetPainter) spark(c *ui.Context, points []Object, r ui.Rect, large b
 			maximum = max(maximum, number(point["total"]))
 		}
 		if large {
-			for _, v := range []float32{0, .5, 1} {
-				for x := r.X; x < r.X+r.W; x += 8 {
-					p.Line(x, r.Y+r.H*v, min(x+3, r.X+r.W), r.Y+r.H*v, 1, ui.Hex("#6785aa").Alpha(.16))
-				}
+			for _, v := range []float32{0, .5} {
+				p.Line(r.X, r.Y+r.H*v, r.X+r.W, r.Y+r.H*v, 1, pal.hairline)
 			}
-			for _, v := range []float32{0, .25, .5, .75, 1} {
-				for y := r.Y; y < r.Y+r.H; y += 8 {
-					p.Line(r.X+r.W*v, y, r.X+r.W*v, min(y+3, r.Y+r.H), 1, ui.Hex("#6785aa").Alpha(.12))
-				}
-			}
+			p.Line(r.X, r.Y+r.H, r.X+r.W, r.Y+r.H, 1, pal.separator)
 		}
 		if len(points) == 0 {
 			return
@@ -473,12 +518,12 @@ func (p *widgetPainter) spark(c *ui.Context, points []Object, r ui.Rect, large b
 			}
 		}
 		fill.LineTo(r.X+r.W, r.Y+r.H).LineTo(r.X, r.Y+r.H).Close()
-		p.FillPath(fill, ui.Hex("#00a88e").Alpha(.13))
+		p.FillPathGradient(fill, chartFill(color))
 		width := float32(2)
 		if !large {
-			width = 3.5
+			width = 2.5
 		}
-		p.StrokePath(line, width, ui.Hex("#00a58e"))
+		p.StrokePath(line, width, color)
 	})
 }
 
@@ -581,8 +626,10 @@ func (m *widgetModel) tooltip(region int, now time.Time) string {
 	return ""
 }
 
+// metricView is one tile, laid out as the app's KPI tiles: a badge over the
+// label, the value in the display face, and a capsule gauge or sparkline.
 func (p *widgetPainter) metricView(c *ui.Context, i int) {
-	widgetTheme(c)
+	pal := p.theme(c)
 	m := p.model
 	now := m.clock
 	metric := m.metrics(now)[i]
@@ -591,14 +638,10 @@ func (p *widgetPainter) metricView(c *ui.Context, i int) {
 	if m.ReduceMotion {
 		hover = 0
 	}
-	p.panel(c, r, 18, i)
-	iconColor, iconBG := widgetGreen, ui.Hex("#4ddbc32d")
-	if metric.Speed {
-		iconColor, iconBG = ui.Hex("#1671ff"), ui.Hex("#67a8ff29")
-	}
-	widgetBox(c, r.X+11, r.Y+13, 26, 26).Radius(8).Background(iconBG)
-	widgetIcon(c, metric.Icon, r.X+14, r.Y+16-hover, 20, iconColor).Rotate(-6 * hover)
-	widgetText(c, metric.Label, r.X+11, r.Y+44, r.W-22, 12, 19.2, ui.Hex("#465f7d"), 400)
+	p.panel(c, r, 14, i)
+	color := m.metricColor(i)
+	widgetBadge(c, metric.Icon, r.X+12, r.Y+12-hover, 24, color).Rotate(-6 * hover)
+	widgetText(c, metric.Label, r.X+12, r.Y+43, r.W-22, 12, 17, pal.secondary, 500)
 	value := widgetPercent(metric.Value)
 	if metric.Speed {
 		value = "—"
@@ -606,20 +649,21 @@ func (p *widgetPainter) metricView(c *ui.Context, i int) {
 			value = fmt.Sprintf("%.1f", number(metric.Value))
 		}
 	}
-	valueRow := ui.Row(c).Absolute().Left(r.X + 11).Top(r.Y + 73.2).Gap(3).Height(32.4).AlignItems(ui.End)
+	valueRow := ui.Row(c).Absolute().Left(r.X + 12).Top(r.Y + 63).Gap(3).Height(32).AlignItems(ui.End)
 	valueRow.Children(func() {
-		ui.Text(c, value).FontSize(27).FixedLineHeight(32.4).TextColor(widgetInk).Bold().LetterSpacing(-1).FontFeatures("tnum")
+		ui.Text(c, value).FontSize(26).FixedLineHeight(32).Font(fontDisplay).FontWeight(650).TextColor(pal.label).LetterSpacing(-.6).FontFeatures("tnum")
 		if metric.Speed {
-			ui.Text(c, "tok/s").FontSize(10).FixedLineHeight(12).TextColor(widgetMuted).FontWeight(500).Margin(0, 0, 4, 0)
+			ui.Text(c, "tok/s").FontSize(10).FixedLineHeight(12).TextColor(pal.tertiary).FontWeight(500).Margin(0, 0, 5, 0)
 		}
 	})
 	if metric.Speed {
-		p.spark(c, objects(m.Data["speed"]), ui.Rect{X: r.X + 11, Y: r.Y + 101.6, W: r.W - 22, H: 14}, false)
-	} else {
-		bar := ui.Rect{X: r.X + 11, Y: r.Y + 109.6, W: r.W - 22, H: 5}
-		widgetBox(c, bar.X, bar.Y, bar.W, bar.H).Radius(6).Background(ui.Hex("#b8c9df66"))
-		widgetBox(c, bar.X, bar.Y, bar.W*m.bars[i].value(now)/100, bar.H).Radius(6).Draw(func(p *ui.Painter, r ui.Rect) {
-			p.FillGradient(r, ui.LinearGradient{From: ui.Hex("#00a58b"), To: ui.Hex("#43c7ab"), Angle: 90}, 6)
-		})
+		p.spark(c, objects(m.Data["speed"]), ui.Rect{X: r.X + 12, Y: r.Y + 98, W: r.W - 24, H: 14}, false, color)
+		return
+	}
+	bar := ui.Rect{X: r.X + 12, Y: r.Y + 104, W: r.W - 24, H: 6}
+	widgetBox(c, bar.X, bar.Y, bar.W, bar.H).Radius(3).Background(pal.fill)
+	if level := bar.W * m.bars[i].value(now) / 100; level > 0 {
+		widgetBox(c, bar.X, bar.Y, max(bar.H, level), bar.H).Radius(3).
+			LinearGradient(ui.LinearGradient{From: color.Mix(ui.RGB(255, 255, 255), .2), To: color, Angle: 90})
 	}
 }

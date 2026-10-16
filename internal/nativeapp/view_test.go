@@ -250,3 +250,14 @@ func BenchmarkViewFrame(b *testing.B) {
 		})
 	}
 }
+
+func TestOpenAIModelMark(t *testing.T) {
+	for model, want := range map[string]bool{
+		"gpt-5.5": true, "GPT-4o": true, "gpt-5-codex": true, "codex-mini-latest": true, "o3": true, "o4-mini": true,
+		"openai/gpt-5": true, "chatgpt-4o-latest": true, "claude-sonnet-4": false, "unpriced-native": false, "omni": false, "": false,
+	} {
+		if openAIModel(model) != want {
+			t.Errorf("openAIModel(%q) = %v", model, !want)
+		}
+	}
+}

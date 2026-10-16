@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/egoist/mygo"
 )
 
 // The widget uses the parent's service and GUI thread, without another process.
@@ -157,6 +159,18 @@ func (h *widgetHost) request(manual bool) {
 		})
 	}()
 }
+
+// syncTheme follows the app into light or dark appearance.
+func (h *widgetHost) syncTheme() {
+	if h.closed || h.app.win == nil {
+		return
+	}
+	if dark := mygo.Theme.IsDark(); dark != h.model.Dark {
+		h.model.Dark = dark
+		h.painter.invalidate()
+		h.window.wake()
+	}
+}
 func (h *widgetHost) tick(now time.Time) {
 	if h.closed {
 		return
@@ -177,6 +191,7 @@ func (h *widgetHost) tick(now time.Time) {
 		h.painter.invalidate()
 	}
 	if h.model.Visible && now.Sub(h.lastPoll) >= 3*time.Second {
+		h.syncTheme()
 		h.update()
 	}
 	active := h.model.animating(now)
@@ -264,6 +279,7 @@ func (a *App) showWidget() {
 		}
 		h.model = newWidgetModel()
 		h.model.ReduceMotion = a.reduceMotion
+		h.model.Dark = a.pal != nil && a.pal.dark
 		h.painter = newWidgetPainter(&h.model, a.brand)
 		ctx, cancel := context.WithCancel(context.Background())
 		h.cancel = cancel

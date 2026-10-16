@@ -25,10 +25,10 @@
 </div>
 
 <p align="center">
-  <img src="assets/readme/cover.png" alt="Codex Monitor 原生主窗口与透明桌面小窗口展示图" width="1120" />
+  <img src="assets/readme/cover.png" alt="Codex Monitor 2.9.1 原生主窗口实际截图" width="1120" />
 </p>
 
-<p align="center"><sub>封面基于当前界面截图制作；截图使用演示数据。原始界面预览见下方。</sub></p>
+<p align="center"><sub>2.9.1 Windows 原生界面实机截图；全部使用合成演示数据。小窗口浅色 / 深色预览见下方。</sub></p>
 
 <a id="功能"></a>
 
@@ -43,13 +43,13 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 | 历史分析 | 任务记录、逐次调用、任务内消耗占比、首字时间、失败重试事件、筛选分页与 CSV 导出 |
 | 账户额度 | 当前 Codex 账号的 5h / 每周额度、重置时间和采样历史趋势 |
 | 设置与价格 | 中英文、主题、提醒、开机启动、账号名称与价格版本 |
-| 桌面小窗口 | 玻璃卡片与 Token 圆球、拖动、置顶、用量趋势和位置恢复 |
+| 桌面小窗口 | 与主窗口同一套样式的卡片与 Token 圆球，跟随浅色 / 深色；拖动、置顶、用量趋势和位置恢复 |
 
 支持今日、近 7 天、近 30 天、全部和自定义时间范围。窗口隐藏系统标题栏，侧栏使用 Windows Mica 材质，顶部玻璃工具栏随滚动出现；仍可拖动、缩放、最小化和最大化。关闭窗口后继续在托盘采集，完全退出请使用托盘菜单。
 
 历史分析可切换“任务分析 / 逐次调用”。逐次记录采用紧凑行，显示时间与状态、模型、首字时间、输入 / 输出、缓存命中和费用；点击展开详情。任务内明细显示消耗占比、平均 / P95 首字和失败重试事件，不展示来源列。Desktop、CLI 和已配置的 Pi 用量继续采集。新安装默认开启首字采集，自动配置 Codex Desktop / CLI 和 Pi；升级保留原开关，开启后自动接通。正在运行的客户端只需重启一次，Pi 也可执行 `/reload`；完整说明见 [逐次用量与首字分析](docs/request-analysis.md)。
 
-2.9 按 Apple 的设计语言重做主窗口：系统色板的浅色 / 深色主题、彩色图标徽章、圆角卡片与分组设置。卡片按顺序以弹簧动画入场，侧栏选中胶囊随页面滑动，指标卡片悬停时轻微抬起，额度圆环从零转到当前值，数字以数值过渡变化。小窗口保留卡片 / 圆球动画与鼠标高光。两种界面均遵循系统减少动态效果设置。
+2.9 按 Apple 的设计语言重做主窗口：系统色板的浅色 / 深色主题、彩色图标徽章、圆角卡片与分组设置。卡片按顺序以弹簧动画入场，侧栏选中胶囊随页面滑动，指标卡片悬停时轻微抬起，额度圆环从零转到当前值，数字以数值过渡变化。2.9.1 起小窗口使用同一套色板、字体、彩色徽章和圆角卡片，并跟随浅色 / 深色主题；GPT / Codex 等 OpenAI 模型显示 OpenAI 官方黑白标志。小窗口保留卡片 / 圆球动画与鼠标高光。两种界面均遵循系统减少动态效果设置。
 
 Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰谷、额度重置和采样空档。鼠标与键盘浏览的数值来自原始记录；密集额度采样只精简绘制点。动画复用后台绘制的曲线图层，长历史悬停使用二分查找。详见 [曲线平滑](docs/chart-smoothing.md) 与 [图表性能测量](docs/chart-performance.md)。
 
@@ -86,7 +86,11 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 </details>
 
 <p align="center">
-  <img src="assets/readme/widget.png" alt="透明桌面小窗口：5h 与周额度、实时 TPS、缓存命中率和今日 Token" width="560" />
+  <img src="assets/readme/widget.png" alt="桌面小窗口：5h 与周额度、实时 TPS、缓存命中率和今日 Token" width="560" />
+</p>
+
+<p align="center">
+  <img src="assets/readme/widget-dark.png" alt="桌面小窗口深色主题：与主窗口统一的卡片、徽章与用量趋势" width="560" />
 </p>
 
 小窗口用量汇总本机全部账号，额度仅显示当前 Codex 账号。点击右上角三点收起为圆球，点击圆球展开；右键可设置置顶，双击标题或点击标志返回主窗口。
@@ -95,9 +99,9 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.9.0/Codex-Monitor-Setup-2.9.0.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.9.0)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.9.1/Codex-Monitor-Setup-2.9.1.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.9.1)
 
-运行 `Codex-Monitor-Setup-2.9.0.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
+运行 `Codex-Monitor-Setup-2.9.1.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 安装及登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 

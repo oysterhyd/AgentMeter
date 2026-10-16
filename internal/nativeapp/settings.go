@@ -314,11 +314,8 @@ func (a *App) prices(c *ui.Context) {
 		for _, price := range prices {
 			manual := str(price["source"]) == "手动设置" && !truth(price["retired"])
 			description := stamp(price["effective"]) + " · " + a.system(str(price["source"])) + "\n" + fmt.Sprintf("%s %s · %s %s · %s %s · %s %s", a.tr("输入"), money(price["input"]), a.tr("缓存输入"), money(price["cached"]), a.tr("输出"), money(price["output"]), a.tr("缓存写入"), money(price["cache_write"]))
-			color := p.orange
-			if manual {
-				color = p.purple
-			}
-			a.row(c.Key(str(price["id"])), "currency-dollar-fill", color, str(price["model"])+" · v"+str(price["id"]), description, func() {
+			model := str(price["model"])
+			a.rowWith(c.Key(str(price["id"])), func() { a.modelMark(c, model, 28) }, model+" · v"+str(price["id"]), description, func() {
 				if manual {
 					if a.button(c, a.tr("编辑"), "").Disabled(a.busy).Clicked() {
 						a.editPrice(price, true)

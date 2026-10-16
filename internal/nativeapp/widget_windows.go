@@ -387,6 +387,7 @@ func (w *widgetWindow) preferences() {
 		value, _, e := key.GetIntegerValue("EnableTransparency")
 		w.host.model.ReduceTransparency = e == nil && value == 0
 	}
+	w.host.model.Dark = mygo.Theme.IsDark()
 }
 func (w *widgetWindow) poll(now time.Time) {
 	cursor := widgetCursor()

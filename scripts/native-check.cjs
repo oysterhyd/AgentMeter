@@ -25,6 +25,8 @@ try {
   const widget=JSON.parse(fs.readFileSync(path.join(out,'widget-result.json'),'utf8'));
   const switching=JSON.parse(fs.readFileSync(path.join(out,'switch-performance.json'),'utf8'));
   const appearance=JSON.parse(fs.readFileSync(path.join(out,'appearance-result.json'),'utf8'));
+  assert.equal(appearance['history-ready'],true);
+  assert.equal(appearance['history-dark'],true);
   for(const theme of ['light','dark']) {
     assert.equal(appearance[`theme-${theme}`],true,`native ${theme} appearance`);
     for(const group of ['general','accounts','prices','data']) {
@@ -35,7 +37,8 @@ try {
   assert.equal(switching.updaterConfigured,true,'signed native updater is configured');
   assert.equal(switching.rapidReverse,true,'rapid window reversal');
   for(const key of ['layered','fixedSize','rendered','perPixelAlpha','noBrowserChildren','orbHit','transparentHit','keyboardExpand','expiredUnknown','errorVisible','reducedMotion','retryRecovered','topmostToggle','hidePersisted','dragWorked','dragDidNotExpand','idleBuffersReleased','coldRestored'])assert.equal(widget[key],true,`widget ${key}`);
-  for(const state of ['card','hover','morph','orb','english-expired','disconnected','cold'])assert.ok(fs.statSync(path.join(out,`widget-${state}.png`)).size>1000);
+  for(const theme of ['light','dark'])assert.equal(widget[`theme-${theme}`],true,`widget ${theme} appearance`);
+  for(const state of ['card','card-light','card-dark','hover','morph','orb','orb-dark','english-expired','disconnected','cold'])assert.ok(fs.statSync(path.join(out,`widget-${state}.png`)).size>1000);
   for(const page of ['overview','activity','history','quota','settings'])assert.ok(fs.statSync(path.join(out,`${page}.png`)).size>1000);
   const hashes=new Set(['overview','activity','history','quota','settings'].map(page=>require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(out,`${page}.png`))).digest('hex')));assert.equal(hashes.size,5,'each page must actually be redrawn');
   if(!result.reducedMotion)assert.notDeepEqual(fs.readFileSync(path.join(out,'history-enter.png')),fs.readFileSync(path.join(out,'history.png')),'page/lens motion must produce an intermediate frame');

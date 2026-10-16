@@ -211,7 +211,11 @@ func (a *App) breakdown(c *ui.Context) {
 						label = shortPath(label)
 					}
 					ui.Column(c).Grow(2.4).Basis(0).MinWidth(0).Gap(5).Children(func() {
-						ui.Text(c, label).FontSize(13).FontWeight(500).SingleLine().Tooltip(str(row["name"]))
+						if key == "models" {
+							a.modelLabel(c, label, 13, 500)
+						} else {
+							ui.Text(c, label).FontSize(13).FontWeight(500).SingleLine().Tooltip(str(row["name"]))
+						}
 						share := float32(number(row["total"]) / peak)
 						ui.Box(c).Height(4).FillWidth().Radius(2).Background(p.fill).Draw(func(pt *ui.Painter, r ui.Rect) {
 							pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: max(r.H, r.W*share), H: r.H}, p.series(i), 2)
@@ -273,7 +277,7 @@ func (a *App) records(c *ui.Context) {
 						session := str(v["session"])
 						ui.Text(c, session[:min(8, len(session))]+" · "+shortPath(str(v["project"]))).FontSize(11).TextColor(p.secondary).SingleLine()
 					})
-					ui.Text(c, str(v["model"])).Grow(1.5).Basis(0).MinWidth(0).FontSize(12).SingleLine()
+					a.modelLabel(c, str(v["model"]), 12, 400).Grow(1.5).Basis(0)
 					ui.Row(c).Grow(1).Basis(0).Children(func() { a.statusPill(c, str(v["status"])) })
 					a.cell(c, full(v["input"]), 1, true)
 					a.cell(c, full(v["output"]), 1, true)
@@ -338,7 +342,7 @@ func (a *App) recordDetail(c *ui.Context, row Object) {
 		})
 		for _, model := range objects(row["models"]) {
 			ui.Row(c).Gap(16).Padding(8, 0).BorderWidth(1, 0, 0, 0).BorderColor(p.separator).Children(func() {
-				ui.Text(c, str(model["model"])).Width(190).FontWeight(500).SingleLine()
+				a.modelLabel(c, str(model["model"]), 13, 500).Width(190)
 				for _, item := range [][2]string{{"输入", full(model["input"])}, {"缓存输入", full(model["cached"])}, {"输出", full(model["output"])}} {
 					ui.Text(c, a.tr(item[0])+" "+item[1]).FontSize(12).Grow(1).Basis(0).FontFeatures("tnum")
 				}

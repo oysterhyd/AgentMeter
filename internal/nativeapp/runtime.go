@@ -388,6 +388,9 @@ func (a *App) load() {
 						}
 					}
 					mygo.Theme.SetSource(mygo.ThemeSource(str(obj(next["settings"])["theme"])))
+					if a.widget != nil {
+						a.widget.syncTheme()
+					}
 					a.updateTray()
 				}
 			}

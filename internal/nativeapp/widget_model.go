@@ -45,6 +45,7 @@ type widgetModel struct {
 	Data                                                       Object
 	Error                                                      string
 	Busy, Collapsed, Visible, ReduceMotion, ReduceTransparency bool
+	Dark                                                       bool
 	hover, focus                                               int
 	pointerX, pointerY                                         float32
 	dirty                                                      bool
@@ -180,10 +181,10 @@ func (m *widgetModel) metrics(now time.Time) []widgetMetric {
 		cache = number(m.Data["cacheRate"]) * 100
 	}
 	return []widgetMetric{
-		{m.t("当前 5h 额度", "5h quota"), "target", fiveTip, five, false},
-		{m.t("本周额度", "Weekly quota"), "stack", weekTip, week, false},
-		{m.t("实时 TPS", "Live TPS"), "lightning", m.t("本机全部账号最近 60 秒日志中的输出 token / 60；包含等待，并非精确生成速度。", "All local accounts: output tokens recorded in the last 60 seconds / 60; includes idle time, not exact generation speed."), tps, true},
-		{m.t("缓存命中率", "Cache hit rate"), "coins", m.t("本机全部账号今日缓存输入 / 输入 Token（含未归属 pi）", "All local accounts: cached input / input tokens today, including unassigned Pi"), cache, false},
+		{m.t("当前 5h 额度", "5h quota"), "gauge-fill", fiveTip, five, false},
+		{m.t("本周额度", "Weekly quota"), "calendar-dots-fill", weekTip, week, false},
+		{m.t("实时 TPS", "Live TPS"), "broadcast-fill", m.t("本机全部账号最近 60 秒日志中的输出 token / 60；包含等待，并非精确生成速度。", "All local accounts: output tokens recorded in the last 60 seconds / 60; includes idle time, not exact generation speed."), tps, true},
+		{m.t("缓存命中率", "Cache hit rate"), "lightning-fill", m.t("本机全部账号今日缓存输入 / 输入 Token（含未归属 pi）", "All local accounts: cached input / input tokens today, including unassigned Pi"), cache, false},
 	}
 }
 func widgetCompact(v any) string {

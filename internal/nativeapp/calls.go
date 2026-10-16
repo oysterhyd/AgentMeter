@@ -128,7 +128,7 @@ func (a *App) callList(c *ui.Context, rows []Object, task bool) {
 				a.statusPill(c, str(r["status"]))
 			})
 			ui.Column(c).Grow(2).Basis(0).MinWidth(0).Gap(3).Children(func() {
-				ui.Text(c, str(r["model"])).FontSize(12).FontWeight(500).SingleLine().Tooltip(str(r["model"]))
+				a.modelLabel(c, str(r["model"]), 12, 500)
 				sub := shortPath(str(r["project"]))
 				if task && r["sequence"] != nil {
 					sub = a.tr("第 {0} 次用量", r["sequence"])

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/egoist/mygo"
 )
 
 // Acceptance drives the real native widget, in a synthetic offline profile.
@@ -33,6 +35,17 @@ func (a *App) verifyNativeWidget() {
 	time.Sleep(500 * time.Millisecond)
 	a.updateWait(func() { checks = a.widget.window.verify(); a.widget.model.keyboard = false })
 	capture("card")
+	// Exercise the app theme API and the real widget's repaint path. No
+	// system settings or personal profile preferences are changed.
+	for _, source := range []mygo.ThemeSource{mygo.ThemeDark, mygo.ThemeLight} {
+		a.updateWait(func() {
+			mygo.Theme.SetSource(source)
+			a.widget.syncTheme()
+			checks["theme-"+string(source)] = a.widget.model.Dark == (source == mygo.ThemeDark)
+		})
+		capture("card-" + string(source))
+	}
+	a.updateWait(func() { mygo.Theme.SetSource(mygo.ThemeSystem); a.widget.syncTheme() })
 	a.updateWait(func() { a.widget.model.pointer(75, 120, time.Now()); a.widget.painter.invalidate() })
 	time.Sleep(360 * time.Millisecond)
 	capture("hover")
@@ -45,6 +58,9 @@ func (a *App) verifyNativeWidget() {
 	capture("morph")
 	time.Sleep(620 * time.Millisecond)
 	capture("orb")
+	a.updateWait(func() { mygo.Theme.SetSource(mygo.ThemeDark); a.widget.syncTheme() })
+	capture("orb-dark")
+	a.updateWait(func() { mygo.Theme.SetSource(mygo.ThemeSystem); a.widget.syncTheme() })
 	a.updateWait(func() {
 		h := a.widget
 		checks["orbHit"] = h.model.hit(488, 72, time.Now()) == 7
