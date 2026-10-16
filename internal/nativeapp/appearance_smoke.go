@@ -29,7 +29,24 @@ func (a *App) smokeAppearance() {
 			a.updateWait(func() { checks["theme-"+string(source)] = a.pal.dark == (source == mygo.ThemeDark) })
 		}
 	}
+	// README's dark history preview is captured from the native window too.
+	a.updateWait(func() { a.navigate(2) })
+	deadline := time.Now().Add(12 * time.Second)
+	ready := false
+	for time.Now().Before(deadline) {
+		a.updateWait(func() { ready = !a.loading && a.snapshotPage == 2 && a.lastRenderedPage == 2 })
+		if ready {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	checks["history-ready"] = ready
+	if ready {
+		a.updateWait(func() { mygo.Theme.SetSource(mygo.ThemeDark) })
+		capture("history-dark")
+	}
 	a.updateWait(func() {
+		a.navigate(4)
 		a.settingsSection = 0
 		mygo.Theme.SetSource(mygo.ThemeSystem)
 		checks["preferences"] = mygo.Theme.Preferences()
