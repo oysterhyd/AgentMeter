@@ -25,10 +25,10 @@
 </div>
 
 <p align="center">
-  <img src="assets/readme/cover.png" alt="Codex Monitor 原生主窗口与透明桌面小窗口展示图" width="1120" />
+  <img src="assets/readme/cover.png" alt="Codex Monitor 2.9.1 原生主窗口实际截图" width="1120" />
 </p>
 
-<p align="center"><sub>封面基于当前界面截图制作；截图使用演示数据。原始界面预览见下方。</sub></p>
+<p align="center"><sub>2.9.1 Windows 原生界面实机截图；全部使用合成演示数据。小窗口浅色 / 深色预览见下方。</sub></p>
 
 <a id="功能"></a>
 
@@ -87,6 +87,10 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 <p align="center">
   <img src="assets/readme/widget.png" alt="桌面小窗口：5h 与周额度、实时 TPS、缓存命中率和今日 Token" width="560" />
+</p>
+
+<p align="center">
+  <img src="assets/readme/widget-dark.png" alt="桌面小窗口深色主题：与主窗口统一的卡片、徽章与用量趋势" width="560" />
 </p>
 
 小窗口用量汇总本机全部账号，额度仅显示当前 Codex 账号。点击右上角三点收起为圆球，点击圆球展开；右键可设置置顶，双击标题或点击标志返回主窗口。
