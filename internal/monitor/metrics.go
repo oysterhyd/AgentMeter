@@ -219,6 +219,23 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	if e != nil {
 		return nil, e
 	}
+	s.syncSnapshotCache()
+	key := jsonText(Object{"filter": f, "start": iso(start), "end": iso(end), "day": now.In(time.Local).Format("2006-01-02 MST -0700"), "zone": time.Local.String()})
+	if cached := s.snapshotCache.pages.get(key); cached != nil {
+		out = copySnapshot(cached).(Object)
+		// Running tasks age out without a database write. Always evaluate this
+		// live field, even when the historical aggregations can be reused.
+		obj(out["performance"])["active"] = s.activeTasks(f, now)
+		return out, nil
+	}
+	out, err = s.snapshot(f, start, end, now)
+	if err == nil {
+		s.snapshotCache.pages.put(key, out)
+	}
+	return out, err
+}
+
+func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err error) {
 	lo, hi := iso(start), iso(end)
 	page := text(f["page"])
 	if page == "" {
@@ -331,21 +348,28 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	maps := map[string]*ranking{"models": newRanking(), "projects": newRanking(), "tasks": newRanking(), "timeline": newRanking()}
 	hourly := !truth(f["range"]) || f["range"] == "today"
 	var calendar *activityAccumulator
+	var activity any
+	activityKey := ""
 	reuseActivity := false
 	if has("all", "overview", "activity") {
-		calendar = s.newActivity(f, now)
 		activityStart, activityEnd := activityBounds(f, now)
+		activityKey = jsonText(Object{"account": f["account"], "model": f["model"], "session": f["session"], "project": f["project"], "start": iso(activityStart), "end": iso(activityEnd), "day": now.In(time.Local).Format("2006-01-02 MST -0700"), "zone": time.Local.String()})
+		if cached := s.snapshotCache.calendars.get(activityKey); cached != nil {
+			activity = copySnapshot(cached)
+		} else {
+			calendar = s.newActivity(f, now)
+		}
 		local := now.In(time.Local)
 		tomorrow := time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, time.Local)
 		if activityEnd.After(tomorrow) {
 			activityEnd = tomorrow
 		}
-		reuseActivity = analytics && !start.After(activityStart) && !end.Before(activityEnd)
+		reuseActivity = calendar != nil && analytics && !start.After(activityStart) && !end.Before(activityEnd)
 	}
 	if analytics {
 		var sum struct{ requests, legacy, unpriced, cost, saved, input, cached, output, reasoning, cacheWrite float64 }
 		bucketMinute, bucket := "", ""
-		s.each("SELECT u.* "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
+		s.each("SELECT u.ts,u.model,u.session,u.kind,u.input,u.cached,u.output,u.reasoning,u.cache_write "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
 			p := pricing.calculate(u)
 			if reuseActivity {
 				calendar.add(u, p)
@@ -498,16 +522,7 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 	if !truth(account) {
 		account = Unknown
 	}
-	aq := any(nil)
-	if truth(f["account"]) {
-		aq = f["account"]
-	}
-	active := 0
-	for _, t := range s.mustQuery("SELECT t.* FROM turns t WHERE t.status='running' AND t.last_seen>=? AND (? IS NULL OR t.account=? OR EXISTS (SELECT 1 FROM usage u WHERE u.turn=t.id AND u.session=t.session AND u.account=?)) ORDER BY t.started DESC,t.id DESC", iso(now.Add(-2*time.Minute)), aq, aq, aq) {
-		if (!truth(f["model"]) || t["model"] == f["model"]) && (!truth(f["session"]) || t["session"] == f["session"]) && (!truth(f["project"]) || sessions[text(t["session"])]["project"] == f["project"]) {
-			active++
-		}
-	}
+	active := s.activeTasks(f, now)
 	quotas := s.latestQuotas(account)
 	history := []Object{}
 	samples := 0
@@ -596,12 +611,12 @@ func (s *Store) Snapshot(input Object, now time.Time) (out Object, err error) {
 		}
 		options["sessions"] = v
 	}
-	var activity any
 	if calendar != nil {
 		if !reuseActivity {
 			s.each(calendar.query, calendar.args, func(u Object) { calendar.add(u, pricing.calculate(u)) })
 		}
 		activity = calendar.result()
+		s.snapshotCache.calendars.put(activityKey, obj(activity))
 	}
 	var status any
 	if q := obj(s.get("quotaStatus")); q["account"] == account {

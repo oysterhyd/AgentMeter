@@ -1,6 +1,8 @@
 # 逐次用量与首字分析
 
-历史分析包含“任务分析”和“逐次调用”。Desktop、Codex CLI、MonoCode 和已配置的 Pi 来源继续按原来的规则采集，列表不显示来源列，也不需要 API Key。
+历史分析包含“任务分析”和“逐次调用”。支持 Desktop、Codex CLI、VS Code Codex 插件、MonoCode 和已配置的 Pi 来源，列表不显示来源列，也不需要 API Key。
+
+VS Code 插件会话读取同一 `CODEX_HOME` 下的 `sessions/` 与 `archived_sessions/`，保留 `codex_vscode` 原始标识，CSV 的 `source` 为 `vscode`。升级后自动重扫以前忽略的历史日志，仍按响应 ID 去重；旧累计记录按会话隔离差分，尊重清空历史边界。已知 Desktop / CLI / MonoCode 身份优先于 `source=vscode`，避免将共享 app-server 的其他客户端误分类。远程 SSH、容器或 WSL 的日志需要 Monitor 能访问其 Codex 数据目录，本机目录不会包含远程日志。
 
 ## 查看记录
 
@@ -18,9 +20,9 @@
 
 新安装默认开启本机首字采集；升级保留已有开关。打开 Monitor 或在“设置与价格 → 通用 → 本机首字采集”开启开关后，程序自动完成客户端接入，无需复制配置、编辑文件或手动加载扩展。
 
-- **Codex Desktop / CLI**：在 Monitor 当前使用的 `CODEX_HOME/config.toml`（默认 `%USERPROFILE%\.codex\config.toml`）自动合并本机 OTel 导出器，并关闭提示词导出。模型、登录、其他设置和遥测字段保留；第一次修改前在同目录保留 `config.toml.codex-monitor.bak`。Desktop 与 CLI 共用该目录时同时生效，使用其他目录时按 Monitor 的 `--home` / `MONITOR_CODEX_HOME` / `CODEX_HOME` 配置接入。
+- **Codex Desktop / CLI / VS Code 插件**：在 Monitor 当前使用的 `CODEX_HOME/config.toml`（默认 `%USERPROFILE%\.codex\config.toml`）自动合并本机 OTel 导出器，并关闭提示词导出。模型、登录、其他设置和遥测字段保留；第一次修改前在同目录保留 `config.toml.codex-monitor.bak`。客户端共用该目录时同时生效，使用其他目录时按 Monitor 的 `--home` / `MONITOR_CODEX_HOME` / `CODEX_HOME` 配置接入。
 - **Pi**：将内置扩展自动安装到 `PI_CODING_AGENT_DIR/extensions/codex-monitor.ts`（默认 `%USERPROFILE%\.pi\agent\extensions\codex-monitor.ts`）。正常启动 `pi` 即自动加载，无需 `-e`。Pi 目录遵循 `MONITOR_PI_HOME` / `PI_CODING_AGENT_DIR`。
-- **已有运行中的客户端**：配置只在客户端初始化时读取，因此首次接入或修改端口后需重启 Codex Desktop / CLI 一次；Pi 可重启或执行 `/reload`。之后的新调用自动采集，历史缺失时间无法补算。
+- **已有运行中的客户端**：配置只在客户端初始化时读取，因此首次接入或修改端口后需重启 Codex Desktop / CLI 一次，VS Code 执行“Developer: Reload Window”；Pi 可重启或执行 `/reload`。之后的新调用自动采集，历史缺失时间无法补算。
 
 接收器默认监听 `127.0.0.1:4319`。启动时端口被占用会自动选择后续 16 个端口内的空闲端口，并同步客户端配置；也可在设置中应用其他端口。手动选择被占用的端口会回滚设置。关闭开关停止接收，并撤回程序管理的 Codex 字段及 Pi 扩展；用户在此期间修改的其他配置仍保留。完全退出 Monitor 时接收器停止，客户端配置保留，便于下次启动继续采集。
 
@@ -45,7 +47,7 @@ Pi 扩展只发送时间、Token 签名、响应 ID、模型和诊断类别，�
 
 ## 数据与验证
 
-数据库结构升级到版本 3，新增 `request_events` 及索引；不更改原始会话、现有账号、价格、设置或清空历史边界。清空历史同时清除请求事件，并阻止清空时间以前的 OTel 批次重新写入。数据库备份修复保留新增表和结构版本。
+数据库结构版本 3 新增 `request_events` 及索引，版本 4 扩展会话来源以保存 `vscode`；保留原始会话、现有账号、价格、设置或清空历史边界。清空历史同时清除请求事件，并阻止清空时间以前的 OTel 批次重新写入。数据库备份修复保留新增表和结构版本。
 
 接收器只监听 `127.0.0.1`，随采集开关及服务生命周期启停；离线模式不监听。请求有大小和超时限制。接收时按字段白名单丢弃正文、工具内容、账户身份及 headers；错误原文转换为限流、超时、连接、认证、服务等固定类别后保存，无外部转发。
 

@@ -113,6 +113,44 @@ func TestRejectFutureDatabaseSchema(t *testing.T) {
 	}
 }
 
+func TestVSCodeSourceMigrationPreservesVersionThreeDataAndRollsBack(t *testing.T) {
+	s := testStore(t)
+	if err := s.exec(`DROP TABLE sessions;
+		CREATE TABLE sessions(id TEXT PRIMARY KEY,project TEXT,origin TEXT,created TEXT,
+		 source TEXT NOT NULL DEFAULT 'unknown' CHECK(source IN ('unknown','desktop','cli','pi')));
+		CREATE INDEX sessions_source ON sessions(source,id);
+		INSERT INTO sessions VALUES('old','project','Codex Desktop','2026-10-07','desktop');
+		INSERT INTO usage(id,session,input,output) VALUES('kept','old',100,20);
+		PRAGMA user_version=3;
+		CREATE TABLE sessions_v4(conflict TEXT);`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.transaction(s.migrate); err == nil {
+		t.Fatal("expected table conflict")
+	}
+	if num(s.mustOne("PRAGMA user_version")["user_version"]) != 3 || s.mustOne("SELECT source FROM sessions WHERE id='old'")["source"] != "desktop" {
+		t.Fatal("failed migration changed data or version")
+	}
+	if err := s.exec("DROP TABLE sessions_v4"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.transaction(s.migrate); err != nil {
+		t.Fatal(err)
+	}
+	if s.mustOne("SELECT project FROM sessions WHERE id='old'")["project"] != "project" || num(s.mustOne("SELECT input FROM usage WHERE id='kept'")["input"]) != 100 {
+		t.Fatal("migration lost existing data")
+	}
+	if err := s.exec("INSERT INTO sessions(id,source) VALUES('new','vscode')"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.exec("INSERT INTO sessions(id,source) VALUES('invalid','other')"); err == nil {
+		t.Fatal("migration removed source validation")
+	}
+	if num(s.mustOne("PRAGMA user_version")["user_version"]) != schemaVersion {
+		t.Fatal("migration did not advance version")
+	}
+}
+
 func TestVersionTwoRequestMigrationPreservesUsageAndRollsBackFailure(t *testing.T) {
 	s := testStore(t)
 	if err := s.exec("INSERT INTO usage(id,input,output,account) VALUES('preserved',100,20,'a'); DROP TABLE request_events; PRAGMA user_version=2; CREATE INDEX request_events_time ON usage(ts)"); err != nil {
@@ -133,7 +171,7 @@ func TestVersionTwoRequestMigrationPreservesUsageAndRollsBackFailure(t *testing.
 	if row := s.mustOne("SELECT input,output,account FROM usage WHERE id='preserved'"); num(row["input"]) != 100 || num(row["output"]) != 20 || row["account"] != "a" {
 		t.Fatal(row)
 	}
-	if num(s.mustOne("PRAGMA user_version")["user_version"]) != 3 {
+	if num(s.mustOne("PRAGMA user_version")["user_version"]) != schemaVersion {
 		t.Fatal("schema version")
 	}
 }

@@ -45,9 +45,9 @@ Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native
 | 设置与价格 | 中英文、主题、提醒、开机启动、账号名称与价格版本 |
 | 桌面小窗口 | 与主窗口同一套样式的卡片与 Token 圆球，跟随浅色 / 深色；拖动、置顶、用量趋势和位置恢复 |
 
-支持今日、近 7 天、近 30 天、全部和自定义时间范围。窗口隐藏系统标题栏，侧栏使用 Windows Mica 材质，顶部玻璃工具栏随滚动出现；仍可拖动、缩放、最小化和最大化。关闭窗口后继续在托盘采集，完全退出请使用托盘菜单。
+支持今日、近 7 天、近 30 天、全部和自定义时间范围。范围切换复用有上限的统计缓存，数据变化后自动失效；趋势图更新保留焦点，不重复播放入场动画。刷新和导出按钮与末尾筛选框右对齐。窗口隐藏系统标题栏，侧栏使用 Windows Mica 材质，顶部玻璃工具栏随滚动出现；仍可拖动、缩放、最小化和最大化。关闭窗口后继续在托盘采集，完全退出请使用托盘菜单。
 
-历史分析可切换“任务分析 / 逐次调用”。逐次记录采用紧凑行，显示时间与状态、模型、首字时间、输入 / 输出、缓存命中和费用；点击展开详情。任务内明细显示消耗占比、平均 / P95 首字和失败重试事件，不展示来源列。Desktop、CLI 和已配置的 Pi 用量继续采集。新安装默认开启首字采集，自动配置 Codex Desktop / CLI 和 Pi；升级保留原开关，开启后自动接通。正在运行的客户端只需重启一次，Pi 也可执行 `/reload`；完整说明见 [逐次用量与首字分析](docs/request-analysis.md)。
+历史分析可切换“任务分析 / 逐次调用”。逐次记录采用紧凑行，显示时间与状态、模型、首字时间、输入 / 输出、缓存命中和费用；点击展开详情。任务内明细显示消耗占比、平均 / P95 首字和失败重试事件，不展示来源列。Desktop、CLI、VS Code Codex 插件和已配置的 Pi 用量均可采集。新安装默认开启首字采集，自动配置 Codex Desktop / CLI / VS Code 和 Pi；升级保留原开关，开启后自动接通。正在运行的 Desktop / CLI 只需重启一次，VS Code 重新加载窗口，Pi 也可执行 `/reload`；完整说明见 [逐次用量与首字分析](docs/request-analysis.md)。
 
 2.9 按 Apple 的设计语言重做主窗口：系统色板的浅色 / 深色主题、彩色图标徽章、圆角卡片与分组设置。卡片按顺序以弹簧动画入场，侧栏选中胶囊随页面滑动，指标卡片悬停时轻微抬起，额度圆环从零转到当前值，数字以数值过渡变化。2.9.1 起小窗口使用同一套色板、字体、彩色徽章和圆角卡片，并跟随浅色 / 深色主题；GPT / Codex 等 OpenAI 模型显示 OpenAI 官方黑白标志。小窗口保留卡片 / 圆球动画与鼠标高光。两种界面均遵循系统减少动态效果设置。
 
@@ -99,9 +99,9 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.9.1/Codex-Monitor-Setup-2.9.1.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.9.1)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.9.2/Codex-Monitor-Setup-2.9.2.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.9.2)
 
-运行 `Codex-Monitor-Setup-2.9.1.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
+运行 `Codex-Monitor-Setup-2.9.2.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 安装及登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 
@@ -163,7 +163,7 @@ Go 可通过 PATH 查找，也支持 `%LOCALAPPDATA%\Programs\go\bin\go.exe` 或
 
 ## 指标口径
 
-- **用量来源**：只读扫描 `%CODEX_HOME%`（默认 `%USERPROFILE%\.codex`）的 `sessions/` 与 `archived_sessions/`，计入 Codex Desktop 和 Codex CLI（交互终端、`codex exec` 与 MonoCode）来源。新版按响应 ID 去重，旧累计记录采用差分；CLI 差分记录按会话隔离。任务明细与 CSV 导出包含来源。升级到 2.7.1 时自动迁移数据库并重读已有日志，补采此前忽略的 CLI 历史；保留已有统计、账号、价格和清空历史的时间边界。
+- **用量来源**：只读扫描 `%CODEX_HOME%`（默认 `%USERPROFILE%\.codex`）的 `sessions/` 与 `archived_sessions/`，计入 Codex Desktop、VS Code Codex 插件和 Codex CLI（交互终端、`codex exec` 与 MonoCode）来源。新版按响应 ID 去重，旧累计记录采用差分；CLI 与 VS Code 差分记录按会话隔离。任务明细与 CSV 导出包含来源。升级后自动迁移数据库并重读已有日志，补采此前忽略的 CLI / VS Code 历史；保留已有统计、账号、价格和清空历史的时间边界。
 - **pi 来源**：支持可识别的官方 Codex 登录来源。默认读取 `%USERPROFILE%\.pi\agent\sessions`，兼容 `openai-codex`，以及能通过当前本机官方 OAuth 配置识别的 `openai`。未知账号保持未归属；混用登录方式的历史日志需结合实际情况判断。
 - **额度**：通过本机 Codex app-server 的 `account/rateLimits/read` 查询，属于当前账号，可能包括其他设备的用量。曲线在重置和采样空档处断开。
 - **缓存命中率**：缓存输入 / 输入 Token；没有输入时保持未知。

@@ -150,14 +150,14 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 			detail, color = a.tr(str(status["error"])), p.red
 		}
 		a.row(c, "", ui.Color{}, a.tr("状态"), detail, func() { a.pill(c, a.tr(label), color) })
-		a.row(c, "", ui.Color{}, a.tr("自动配置"), a.tr("自动配置 Codex Desktop / CLI 和 Pi，无需编辑文件或复制加载命令。"), func() {
+		a.row(c, "", ui.Color{}, a.tr("自动配置"), a.tr("自动配置 Codex Desktop / CLI / VS Code 和 Pi，无需编辑文件或复制加载命令。"), func() {
 			if a.button(c, a.tr("重新检查自动配置"), "").Disabled(a.busy).Clicked() {
 				a.perform(func() (any, error) { return a.call("telemetrySetup", Object{}) }, "自动配置已检查")
 			}
 		})
 		for _, client := range []string{"codex", "pi"} {
 			binding := obj(status[client])
-			name := "Codex Desktop / CLI"
+			name := "Codex Desktop / CLI / VS Code"
 			if client == "pi" {
 				name = "Pi"
 			}
@@ -169,7 +169,7 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 			}
 		}
 		if truth(obj(status["codex"])["restartRequired"]) || truth(obj(status["pi"])["restartRequired"]) {
-			a.row(c, "", ui.Color{}, a.tr("需要重启"), a.tr("配置已更新：正在运行的 Codex Desktop / CLI 需重启一次；Pi 可执行 /reload。之后的新调用自动采集。"), nil)
+			a.row(c, "", ui.Color{}, a.tr("需要重启"), a.tr("配置已更新：正在运行的 Codex Desktop / CLI 需重启一次，VS Code 需重新加载窗口；Pi 可执行 /reload。之后的新调用自动采集。"), nil)
 		}
 	})
 }
@@ -215,7 +215,7 @@ func (a *App) accountSettings(c *ui.Context) {
 func (a *App) dataSettings(c *ui.Context, settings Object) {
 	p := a.pal
 	paths := obj(a.data["paths"])
-	a.group(c, a.tr("数据来源"), a.tr("自动统计 pi 中官方登录的 Codex 用量，不含 API Key 和其他供应商。历史账号无法确认时保留为未归属，不改变额度查询来源。"), func() {
+	a.group(c, a.tr("数据来源"), a.tr("自动统计 Codex Desktop、CLI、VS Code 插件及 pi 中官方登录的 Codex 用量，不含 pi 的 API Key 和其他供应商。历史账号无法确认时保留为未归属，不改变额度查询来源。"), func() {
 		for _, entry := range []struct{ label, key, icon string }{{"Codex 数据目录", "home", "folder-open-fill"}, {"pi 会话目录", "piSessions", "folder-open-fill"}, {"监测数据库目录", "data", "database-fill"}} {
 			value := str(paths[entry.key])
 			if value == "" {

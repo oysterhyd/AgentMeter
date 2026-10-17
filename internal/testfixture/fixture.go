@@ -64,6 +64,9 @@ func Seed(dir string) error {
 		if i%3 == 1 {
 			origin, source = "codex-tui", "cli"
 		}
+		if i%3 == 2 {
+			origin, source = "codex_vscode", "vscode"
+		}
 		if err = exec("INSERT INTO sessions(id,project,origin,created,source) VALUES(?,?,?,?,?)", fmt.Sprintf("native-session-%d", i), fmt.Sprintf(`D:\验收项目\项目%d`, i%3), origin, stamp(date), source); err != nil {
 			return err
 		}

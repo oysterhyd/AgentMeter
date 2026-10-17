@@ -53,7 +53,9 @@ func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, perce
 		a.empty(c, a.tr("这个时间范围内还没有记录"))
 		return
 	}
-	column := ui.Column(c.Key("chart-" + key + a.snapshotKey)).Gap(6)
+	// A new filter changes the data, not this chart's identity. Keep its
+	// reveal/focus state so a range switch does not replay the 780ms entrance.
+	column := ui.Column(c.Key("chart-" + key)).Gap(6)
 	renderer := ui.Local(column, "renderer", func() chartRenderer { return chartRenderer{} })
 	if a.chartRenderer != nil && a.chartRenderer != renderer && a.chartRenderer.name == key {
 		a.releaseChart()
@@ -96,8 +98,13 @@ func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, perce
 		return compact(v)
 	}
 	column.Children(func() {
-		plot := ui.Box(c.Key(key + a.snapshotKey)).FillWidth().Height(chartHeight).Focusable().Label(a.tr("用量趋势") + " " + key)
+		plot := ui.Box(c.Key(key)).FillWidth().Height(chartHeight).Focusable().Label(a.tr("用量趋势") + " " + key)
 		ui.Local(plot, "init", func() bool { plot.Jump("reveal", 0); return true })
+		filterKey := ui.Local(plot, "filter", func() string { return a.snapshotKey })
+		if *filterKey != a.snapshotKey {
+			plot.Jump("reveal", 1)
+			*filterKey = a.snapshotKey
+		}
 		reveal := plot.AnimateTo("reveal", 1, ui.Animation{Duration: motionReveal, Ease: motionEase})
 		active := false
 		if plot.Hovered() {

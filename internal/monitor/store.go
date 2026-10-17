@@ -133,6 +133,7 @@ type Store struct {
 	lastDiscovery          time.Time
 	catalogHome, catalogPi string
 	scanBoundary           *string
+	snapshotCache          snapshotCache
 }
 
 func Open(file string) (*Store, error) {

@@ -654,6 +654,7 @@ func (a *App) smoke() {
 	}
 	a.smokeAppearance()
 	a.smokeCalls()
+	a.smokeRanges()
 	if a.options.SmokeWidget {
 		a.updateWait(func() { a.toggleWidget() })
 		deadline := time.Now().Add(15 * time.Second)

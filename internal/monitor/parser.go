@@ -5,17 +5,22 @@ import (
 	"encoding/json"
 )
 
-// Prefer known client identities; newer CLI logs also carry a session source.
+// Prefer client identities: CLI/third-party app-server sessions can also carry
+// source=vscode. Use the source only when no known originator identifies them.
 func codexSource(meta Object) string {
 	switch text(meta["originator"]) {
 	case "Codex Desktop", "codex_work_desktop", "codex_desktop":
 		return "desktop"
 	case "Codex CLI", "codex_cli_rs", "codex-tui", "codex-cli", "codex_exec", "monocode", "monocode-text":
 		return "cli"
+	case "codex_vscode":
+		return "vscode"
 	}
 	switch text(meta["source"]) {
 	case "cli", "exec":
 		return "cli"
+	case "vscode":
+		return "vscode"
 	}
 	return ""
 }
@@ -155,6 +160,9 @@ func (s *Store) process(o, state Object, raw []byte) error {
 			origin := text(p["originator"])
 			if origin == "" {
 				origin = "Codex CLI"
+				if state["source"] == "vscode" {
+					origin = "codex_vscode"
+				}
 			}
 			return s.exec("INSERT INTO sessions(id,project,origin,created,source) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET source=excluded.source", state["session"], state["project"], origin, ts, state["source"])
 		}
@@ -227,7 +235,7 @@ func (s *Store) process(o, state Object, raw []byte) error {
 					}
 					if num(usage["input_tokens"])+num(usage["output_tokens"]) > 0 {
 						key := ts + rawAt(raw, "payload", "info", "total_token_usage")
-						if state["source"] == "cli" {
+						if state["source"] == "cli" || state["source"] == "vscode" {
 							key = text(state["session"]) + "|" + key
 						}
 						if e := s.addUsage("legacy:"+hash(key), usage, ts, state, "累计差分"); e != nil {

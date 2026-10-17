@@ -17,6 +17,7 @@ func TestCLIIdentitiesModernAndLegacyUsage(t *testing.T) {
 		{"source": "cli"}, {"source": "exec"},
 		{"originator": "monocode", "source": "vscode"},
 		{"originator": "monocode-text", "source": "vscode"},
+		{"originator": "codex_cli_rs", "source": "vscode"},
 	} {
 		t.Run(jsonText(meta), func(t *testing.T) {
 			s := testStore(t)
@@ -72,7 +73,7 @@ func TestCLIIdentitiesModernAndLegacyUsage(t *testing.T) {
 
 func cliLog(id, origin, created string, stamps ...string) []byte {
 	meta := Object{"id": id, "originator": origin, "cwd": "project"}
-	if origin == "monocode" || origin == "monocode-text" {
+	if origin == "monocode" || origin == "monocode-text" || origin == "codex_vscode" {
 		meta["source"] = "vscode"
 	}
 	lines := []string{jsonText(Object{"type": "session_meta", "timestamp": created, "payload": meta})}
@@ -94,7 +95,7 @@ func TestUpgradeReplaysIgnoredCLIAndPreservesDesktopAndClearBoundary(t *testing.
 	if err := s.set("settings", Object{"clearedAt": stamps[1]}); err != nil {
 		t.Fatal(err)
 	}
-	origins := []string{"Codex Desktop", "codex_cli_rs", "codex_exec", "monocode", "monocode-text"}
+	origins := []string{"Codex Desktop", "codex_cli_rs", "codex_exec", "monocode", "monocode-text", "codex_vscode"}
 	for _, origin := range origins {
 		file := filepath.Join(dir, origin+".jsonl")
 		data := cliLog(origin, origin, created, stamps...)
@@ -121,6 +122,9 @@ func TestUpgradeReplaysIgnoredCLIAndPreservesDesktopAndClearBoundary(t *testing.
 		version := 0
 		if strings.HasPrefix(origin, "monocode") {
 			version = 1
+		}
+		if origin == "codex_vscode" {
+			version = 2
 		}
 		if err := s.exec("INSERT INTO files(path,offset,state,mtime,parser_version) VALUES(?,?,?,?,?)", file, len(data), jsonText(Object{"session": origin, "desktop": origin == "Codex Desktop", "source": ""}), float64(info.ModTime().UnixNano())/1e6, version); err != nil {
 			t.Fatal(err)

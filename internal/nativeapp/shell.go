@@ -24,7 +24,11 @@ var navItems = []navItem{
 	{4, "设置与价格", "gear-six-fill", func(p *palette) ui.Color { return p.gray }},
 }
 
-const sidebarWidth = 236
+const (
+	sidebarWidth    = 236
+	contentMaxWidth = 1320
+	contentInset    = 28
+)
 
 func (a *App) View(c *ui.Context) {
 	a.skin(c)
@@ -58,7 +62,7 @@ func (a *App) View(c *ui.Context) {
 			// Content scrolls under the toolbar, which the scroll edge
 			// effect keeps legible, as in the apps of macOS 26.
 			ui.Scroll(c.Key("main-scroll")).TrackScroll(&a.mainScroll).Grow(1).ClipX().Children(func() {
-				ui.Column(c.Key("content")).FillWidth().MaxWidth(1320).Margin(0, ui.Auto).Padding(a.toolbarHeight(c)+6, 28, 28, 28).Gap(16).Children(func() {
+				ui.Column(c.Key("content")).FillWidth().MaxWidth(contentMaxWidth).Margin(0, ui.Auto).Padding(a.toolbarHeight(c)+6, contentInset, contentInset, contentInset).Gap(16).Children(func() {
 					a.content(c)
 				})
 			})
@@ -263,22 +267,25 @@ func (a *App) sidebarStatus(c *ui.Context) {
 func (a *App) toolbar(c *ui.Context) {
 	p := a.pal
 	bar := c.TitleBar()
-	tb := ui.Row(c.Key("toolbar")).Absolute().Top(0).Left(0).Right(0).Height(a.toolbarHeight(c)).Padding(max(bar.Height-8, 10), bar.Right+20, 0, 28).Gap(10).AlignItems(ui.Center).DragWindow()
-	tb.Children(func() {
-		ui.Text(c.Key("title"), a.tr(pageNames[a.page])).FontSize(22).FontWeight(700).Font(fontDisplay).NoWrap().ContentTransition(ui.ContentTransition{})
-		ui.Text(c.Key("subtitle"), a.subtitle()).FontSize(12).TextColor(p.secondary).NoWrap().Padding(6, 0, 0, 0).ContentTransition(ui.ContentTransition{})
-		ui.Spacer(c)
-		if a.loading || a.busy {
-			ui.Spinner(c).FontSize(14).TextColor(p.secondary)
-		}
-		if a.iconButton(c, "arrows-clockwise", a.tr("刷新数据与额度")).Disabled(a.busy).Clicked() {
-			a.action("refresh", nil, "数据已刷新")
-		}
-		if a.page != 4 {
-			if a.button(c, a.tr("导出 CSV"), "export").Disabled(a.busy || a.loading || len(a.data) == 0).Clicked() {
-				a.exportCSV()
+	// Controls sit below the native caption buttons. Use the content's width
+	// and gutters so actions align with the trailing filter at every size.
+	ui.Column(c.Key("toolbar")).Absolute().Top(0).Left(0).Right(0).Height(a.toolbarHeight(c)).Padding(bar.Height, 0, 0, 0).DragWindow().Children(func() {
+		ui.Row(c.Key("toolbar-content")).FillWidth().MaxWidth(contentMaxWidth).Margin(0, ui.Auto).Grow(1).Padding(0, contentInset).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Text(c.Key("title"), a.tr(pageNames[a.page])).FontSize(22).FontWeight(700).Font(fontDisplay).NoWrap().ContentTransition(ui.ContentTransition{})
+			ui.Text(c.Key("subtitle"), a.subtitle()).FontSize(12).TextColor(p.secondary).NoWrap().Padding(6, 0, 0, 0).ContentTransition(ui.ContentTransition{})
+			ui.Spacer(c)
+			if a.loading || a.busy {
+				ui.Spinner(c).FontSize(14).TextColor(p.secondary)
 			}
-		}
+			if a.iconButton(c, "arrows-clockwise", a.tr("刷新数据与额度")).Disabled(a.busy).Clicked() {
+				a.action("refresh", nil, "数据已刷新")
+			}
+			if a.page != 4 {
+				if a.button(c, a.tr("导出 CSV"), "export").Disabled(a.busy || a.loading || len(a.data) == 0).Clicked() {
+					a.exportCSV()
+				}
+			}
+		})
 	})
 }
 
@@ -300,7 +307,7 @@ func (a *App) subtitle() string {
 var rangeIDs = []string{"today", "7d", "30d", "all", "custom"}
 
 func (a *App) filters(c *ui.Context) {
-	ui.Row(c.Key("filters")).Gap(8).AlignItems(ui.Center).Wrap().Children(func() {
+	ui.Row(c.Key("filters")).Gap(8).AlignItems(ui.Center).Justify(ui.End).Wrap().Children(func() {
 		if a.page != 1 {
 			index := 0
 			for i, id := range rangeIDs {

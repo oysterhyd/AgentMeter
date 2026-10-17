@@ -58,7 +58,7 @@ func (s *Store) newActivity(f Object, now time.Time) *activityAccumulator {
 	a := &activityAccumulator{now: now, year: year, lo: iso(start), hi: iso(end), today: now.Format("2006-01-02"), first: first,
 		days: map[string]*activityDay{}, sessions: map[string]bool{}}
 	a.args = append([]any{a.lo, a.hi}, values...)
-	a.query = "SELECT u.* " + join + " WHERE u.ts>=? AND u.ts<?" + where + " ORDER BY u.ts"
+	a.query = "SELECT u.ts,u.session,u.model,u.input,u.cached,u.output,u.cache_write " + join + " WHERE u.ts>=? AND u.ts<?" + where + " ORDER BY u.ts"
 	return a
 }
 

@@ -123,7 +123,7 @@ func TestRedesignDPIThemesAndSettings(t *testing.T) {
 							continue
 						}
 						r, ok := tt.Find(label)
-						if !ok || r.X < sidebarWidth || r.X+r.W > 980-138 || r.Y < 32 {
+						if !ok || r.X < sidebarWidth || r.X+r.W > 980-contentInset || r.Y < 32 {
 							t.Fatalf("toolbar overlaps window controls: %s %+v", label, r)
 						}
 					}

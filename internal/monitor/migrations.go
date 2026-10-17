@@ -2,8 +2,8 @@ package monitor
 
 import "fmt"
 
-const schemaVersion = 3
-const codexParserVersion = 2
+const schemaVersion = 4
+const codexParserVersion = 3
 const piParserVersion = 2
 
 func (s *Store) checkSchemaVersion() error {
@@ -49,6 +49,18 @@ func (s *Store) migrate() error {
 			return err
 		}
 		if err := s.exec("CREATE INDEX IF NOT EXISTS usage_session_time ON usage(session,ts)"); err != nil {
+			return err
+		}
+	}
+	if version < 4 {
+		// SQLite cannot extend a CHECK constraint in place. Replace only this
+		// small metadata table; usage, accounts, prices and scan offsets stay put.
+		if err := s.exec(`CREATE TABLE sessions_v4(id TEXT PRIMARY KEY,project TEXT,origin TEXT,created TEXT,
+            source TEXT NOT NULL DEFAULT 'unknown' CHECK(source IN ('unknown','desktop','cli','vscode','pi')));
+            INSERT INTO sessions_v4 SELECT id,project,origin,created,source FROM sessions;
+            DROP TABLE sessions;
+            ALTER TABLE sessions_v4 RENAME TO sessions;
+            CREATE INDEX sessions_source ON sessions(source,id);`); err != nil {
 			return err
 		}
 	}

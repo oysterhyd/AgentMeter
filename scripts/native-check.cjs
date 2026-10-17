@@ -22,6 +22,11 @@ try {
   const calls=JSON.parse(fs.readFileSync(path.join(out,'calls-result.json'),'utf8'));
   assert.equal(calls.verified,true,'real native call view');assert.equal(calls.rows,50);assert.ok(calls.pagination.total>50);
   assert.ok(fs.statSync(path.join(out,'calls.png')).size>1000);
+  const ranges=JSON.parse(fs.readFileSync(path.join(out,'ranges-result.json'),'utf8'));
+  assert.equal(ranges.verified,true,'time ranges and native snapshot updates');
+  assert.equal(ranges.latestWins,true,'rapid range changes show the latest selection');
+  assert.equal(ranges.vscodeExport,true,'VS Code usage reaches CSV export');
+  assert.ok(fs.statSync(path.join(out,'ranges.png')).size>1000);
   const widget=JSON.parse(fs.readFileSync(path.join(out,'widget-result.json'),'utf8'));
   const switching=JSON.parse(fs.readFileSync(path.join(out,'switch-performance.json'),'utf8'));
   const appearance=JSON.parse(fs.readFileSync(path.join(out,'appearance-result.json'),'utf8'));

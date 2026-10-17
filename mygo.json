@@ -1,7 +1,7 @@
 {
   "name": "Codex Monitor Native",
   "identifier": "local.codex.monitor.native",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "out": "build/native",
   "updates": {
     "github": "oysterhyd/codex-monitor",

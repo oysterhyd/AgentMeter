@@ -225,8 +225,14 @@ func TestChartWorkerPreservesGapsAndReleasesRetiredLayers(t *testing.T) {
 	retired = a.chartRenderer
 	a.snapshotKey = "changed-range"
 	tt.Frame()
-	if retired.bitmap != nil || retired.pending != nil || len(retired.points) != 0 || a.chartRenderer == retired {
-		t.Fatal("changing range retained a retired chart layer")
+	if a.chartRenderer != retired {
+		t.Fatal("changing range restarted the chart's entrance and focus state")
+	}
+	points = []chartPoint{{Time: 1, Value: 10}, {Time: 2, Value: 20}}
+	a.snapshotRevision++
+	tt.Frame()
+	if a.chartRenderer != retired || len(retired.points) != 2 || retired.points[1].Value != 20 {
+		t.Fatal("stable chart identity kept the previous range's data")
 	}
 	points = nil
 	a.snapshotRevision++
