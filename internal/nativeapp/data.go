@@ -173,6 +173,10 @@ func money(v any) string {
 	if v == nil {
 		return "—"
 	}
+	// Cheap models cost fractions of a cent; do not show them as free.
+	if n := number(v); n > 0 && n < .005 {
+		return "<$0.01"
+	}
 	return fmt.Sprintf("$%.2f", number(v))
 }
 func ratio(v any) string {

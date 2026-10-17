@@ -6,7 +6,9 @@ const { spawn, spawnSync } = require('node:child_process');
 const { once } = require('node:events');
 const { compile, files, bundle, installer, version } = require('./package.cjs');
 const root = path.resolve(__dirname, '..');
-const name = `Codex Monitor Installer Check ${process.pid}`;
+const name = `AgentMeter Installer Check ${process.pid}`;
+// A unique stand-in for the 2.x display name; the real one is never touched.
+const legacyName = `Legacy Installer Check ${process.pid}`;
 const exe = `${name}.exe`;
 const uninstallId = `local.codex.monitor.installer-check-${process.pid}`;
 const registry = `HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${uninstallId}`;
@@ -14,7 +16,7 @@ const artifacts = path.join(root, 'artifacts');
 fs.mkdirSync(artifacts, { recursive: true });
 const temporary = fs.mkdtempSync(path.join(artifacts, 'installer-check-'));
 const destination = path.join(temporary, '安装目录 with spaces');
-const candidate = path.join(temporary, 'Codex-Monitor-Installer-Check.exe');
+const candidate = path.join(temporary, 'AgentMeter-Installer-Check.exe');
 const uninstaller = path.join(destination, `Uninstall ${name}.exe`);
 function quote(value) { return `'${value.replaceAll("'", "''")}'`; }
 function run(file, args, options = {}) {
@@ -41,7 +43,7 @@ let installed = false;
 async function main() {
 try {
   assert.ok(fs.existsSync(installer), 'Run npm run package before package:check.');
-  compile({ name, exe, uninstallId, loginId: name, output: candidate });
+  compile({ name, legacyName, exe, uninstallId, loginId: name, output: candidate });
   fs.mkdirSync(destination, { recursive: true });
   fs.writeFileSync(path.join(destination, 'keep-user-file.txt'), 'must survive upgrade and uninstall');
   // Simulate a legacy install without registering or launching the old application.
@@ -50,6 +52,9 @@ try {
   fs.writeFileSync(path.join(destination, 'Uninstall Codex Monitor.exe'), 'legacy uninstaller');
   fs.writeFileSync(path.join(destination, 'resources', 'app.asar'), 'legacy app source');
   fs.writeFileSync(path.join(destination, 'resources', 'keep-user-file.txt'), 'must survive legacy cleanup');
+  // A 2.x install under the previous display name: uninstaller and shortcuts.
+  fs.writeFileSync(path.join(destination, `Uninstall ${legacyName}.exe`), 'legacy native uninstaller');
+  for (const directory of Object.values(shortcutPaths)) fs.writeFileSync(path.join(directory, `${legacyName}.lnk`), 'legacy shortcut');
   fs.mkdirSync(path.join(destination, 'widget', 'runtime'), { recursive: true });
   fs.writeFileSync(path.join(destination, 'widget', 'runtime', 'electron.exe'), 'legacy widget runtime');
   fs.writeFileSync(path.join(destination, 'widget', 'keep-user-file.txt'), 'must survive widget cleanup');
@@ -58,6 +63,8 @@ try {
   const count = validateFiles();
   assert.ok(!fs.existsSync(path.join(destination, 'Codex Monitor.exe')), 'Legacy main executable retained');
   assert.ok(!fs.existsSync(path.join(destination, 'resources', 'app.asar')), 'Legacy app archive retained');
+  assert.ok(!fs.existsSync(path.join(destination, `Uninstall ${legacyName}.exe`)), 'Renamed uninstaller retained');
+  for (const directory of Object.values(shortcutPaths)) assert.ok(!fs.existsSync(path.join(directory, `${legacyName}.lnk`)), 'Renamed shortcut retained');
   assert.ok(!fs.existsSync(path.join(destination, 'widget', 'runtime', 'electron.exe')), 'Legacy widget runtime retained');
   assert.ok(fs.existsSync(path.join(destination, 'widget', 'keep-user-file.txt')), 'Widget user file lost');
   const registration = JSON.parse(powershell(`Get-ItemProperty -LiteralPath ${quote(registry)} | Select-Object DisplayVersion,InstallLocation,UninstallString | ConvertTo-Json -Compress`));
@@ -114,6 +121,7 @@ try {
   for (const directory of Object.values(shortcutPaths)) assert.ok(!fs.existsSync(path.join(directory, `${name}.lnk`)));
   console.log(`Installer acceptance passed: ${count} file hashes, shortcuts, registry, installed service and database repair, running-app guard, upgrade and uninstall. User-added files preserved.`);
 } finally {
+  for (const directory of Object.values(shortcutPaths)) fs.rmSync(path.join(directory, `${legacyName}.lnk`), { force: true });
   if (installed && fs.existsSync(uninstaller)) runInstaller(uninstaller, ['/S', `_?=${destination}`]);
   const resolved = path.resolve(temporary);
   if (!resolved.startsWith(artifacts + path.sep)) throw new Error('Refusing to clean outside artifacts.');

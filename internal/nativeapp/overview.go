@@ -3,6 +3,7 @@ package nativeapp
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -14,6 +15,9 @@ func (a *App) overview(c *ui.Context) {
 		a.trend(c).Grow(2).Basis(0).MinWidth(0)
 		a.quotaRings(c).Grow(1).Basis(0).MinWidth(280)
 	})
+	if str(a.filter["agent"]) == "" && len(stringsOf(a.data["agentsPresent"])) > 1 {
+		ui.Column(a.kc(c)).Children(func() { a.agentSplit(c) })
+	}
 	a.activity(c, true)
 	ui.Row(a.kc(c)).Gap(16).AlignItems(ui.Stretch).Children(func() {
 		a.models(c).Grow(3).Basis(0).MinWidth(0)
@@ -22,13 +26,27 @@ func (a *App) overview(c *ui.Context) {
 	a.metrics(c)
 }
 
+// primaryQuota is the most constrained live 5-hour window across agents.
 func (a *App) primaryQuota() Object {
+	var chosen Object
+	now := float64(time.Now().Unix())
 	for _, q := range objects(a.data["quotas"]) {
-		if number(q["minutes"]) == 300 {
-			return q
+		if number(q["minutes"]) != 300 || q["used"] == nil || q["resets"] != nil && number(q["resets"]) < now {
+			continue
+		}
+		if chosen == nil || number(q["used"]) > number(chosen["used"]) {
+			chosen = q
 		}
 	}
-	return nil
+	return chosen
+}
+
+// quotaAgent is the agent a quota belongs to; rows before 3.0 are Codex's.
+func quotaAgent(q Object) string {
+	if agent := str(q["agent"]); agent != "" {
+		return agent
+	}
+	return agentCodex
 }
 
 // kpis is the row of headline figures; each tile opens the page behind it.
@@ -41,7 +59,7 @@ func (a *App) kpis(c *ui.Context) {
 	if quota["used"] != nil {
 		fraction = bounded(1-number(quota["used"])/100, 0, 1)
 		remaining = fmt.Sprintf("%.0f%%", fraction*100)
-		quotaFoot = a.quotaWindow(quota)
+		quotaFoot = agentName(quotaAgent(quota)) + " · " + a.quotaWindow(quota)
 	}
 	tokenLabel := "Token 消耗"
 	if str(a.filter["range"]) == "today" {
@@ -200,50 +218,129 @@ func arcPath(cx, cy, r, fraction float32) ui.Path {
 	return path
 }
 
+// quotaGroups splits quotas by agent, Codex first, keeping service order.
+func quotaGroups(quotas []Object) [][]Object {
+	groups := [][]Object{}
+	for _, agent := range []string{agentCodex, agentClaude} {
+		group := []Object{}
+		for _, q := range quotas {
+			if quotaAgent(q) == agent {
+				group = append(group, q)
+			}
+		}
+		if len(group) > 0 {
+			groups = append(groups, group)
+		}
+	}
+	return groups
+}
+
 func (a *App) quotaRings(c *ui.Context) ui.Element {
 	p := a.pal
-	quotas := objects(a.data["quotas"])
+	groups := quotaGroups(objects(a.data["quotas"]))
 	return a.section(c, func() {
-		status := a.tr("在线查询正常")
-		if reason := str(obj(a.data["quotaStatus"])["reason"]); reason != "" {
-			status = a.system(reason)
-		}
 		a.header(c, a.tr("账户额度"), "", func() {
 			if a.iconButton(c, "arrow-up-right", a.tr("查看账户额度")).Clicked() {
 				a.navigate(3)
 			}
 		})
-		if len(quotas) == 0 {
+		if len(groups) == 0 {
 			a.empty(c, a.tr("尚未获得额度快照"))
 			return
 		}
-		values := make([]ringValue, 0, len(quotas))
-		for i, q := range quotas {
-			values = append(values, ringValue{bounded(1-number(q["used"])/100, 0, 1), a.quotaColor(i)})
-		}
-		ui.Row(c).Gap(20).AlignItems(ui.Center).Grow(1).Children(func() {
-			a.ring(c, "quota", values[:min(3, len(values))], 132, 14)
-			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(12).Children(func() {
-				for i, q := range quotas {
-					ui.Column(c).Gap(1).Children(func() {
-						ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-							ui.Box(c).Size(8, 8).Radius(4).Background(values[i].color)
-							ui.Text(c, a.quotaWindow(q)).FontSize(12).TextColor(p.secondary).SingleLine()
-						})
-						ui.Row(c).Gap(3).AlignItems(ui.End).Children(func() {
-							ui.Text(c, fmt.Sprintf("%.0f", values[i].fraction*100)).FontSize(22).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
-							ui.Text(c, a.tr("% 剩余")).FontSize(11).TextColor(p.secondary).Padding(0, 0, 4, 0)
-						})
-						ui.Text(c, a.resetText(q)).FontSize(11).TextColor(p.tertiary).SingleLine()
-					})
-				}
+		if len(groups) == 1 {
+			quotas := groups[0]
+			values := a.quotaValues(quotas)
+			ui.Row(c).Gap(20).AlignItems(ui.Center).Grow(1).Children(func() {
+				a.ring(c, "quota-"+quotaAgent(quotas[0]), values[:min(3, len(values))], 132, 14)
+				ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(12).Children(func() {
+					for i, q := range quotas {
+						a.quotaLegend(c, q, values[i])
+					}
+				})
 			})
+			ui.Text(c, a.quotaStatusLine()).FontSize(11).TextColor(p.tertiary).SingleLine()
+			return
+		}
+		// Several agents stack, each a compact ring beside one-line windows.
+		ui.Column(c).Gap(12).Grow(1).Justify(ui.Center).Children(func() {
+			for g, quotas := range groups {
+				if g > 0 {
+					a.separator(c, 0)
+				}
+				agent := quotaAgent(quotas[0])
+				values := a.quotaValues(quotas)
+				ui.Row(c.Key(agent)).Gap(14).AlignItems(ui.Center).Children(func() {
+					a.ring(c, "quota-"+agent, values[:min(3, len(values))], 76, 9)
+					ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(6).Children(func() {
+						ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+							a.agentMark(c, agent, 18)
+							ui.Text(c, agentName(agent)).FontSize(13).FontWeight(600).Grow(1).SingleLine()
+							status := obj(a.data["quotaStatus"])
+							if agent == agentClaude {
+								status = obj(a.data["claudeQuotaStatus"])
+							}
+							if at := status["attempted"]; at != nil {
+								ui.Text(c, clock(at)).FontSize(11).TextColor(p.tertiary).FontFeatures("tnum").Tooltip(a.tr("采样于") + " " + shortStamp(at))
+							}
+						})
+						for i, q := range quotas {
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+								ui.Box(c).Size(7, 7).Radius(3.5).Background(values[i].color)
+								ui.Text(c, a.quotaTitle(q)).FontSize(12).TextColor(p.secondary).Grow(1).Basis(0).SingleLine()
+								ui.Text(c, fmt.Sprintf("%.0f%%", values[i].fraction*100)).FontSize(15).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
+								ui.Text(c, a.tr("剩余")).FontSize(11).TextColor(p.tertiary)
+							})
+						}
+					})
+				})
+			}
 		})
-		if at := obj(a.data["quotaStatus"])["attempted"]; at != nil {
+	})
+}
+
+func (a *App) quotaValues(quotas []Object) []ringValue {
+	values := make([]ringValue, 0, len(quotas))
+	for i, q := range quotas {
+		values = append(values, ringValue{bounded(1-number(q["used"])/100, 0, 1), a.quotaColor(i)})
+	}
+	return values
+}
+
+func (a *App) quotaLegend(c *ui.Context, q Object, value ringValue) {
+	p := a.pal
+	size := float32(22)
+	ui.Column(c).Gap(1).Children(func() {
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Size(8, 8).Radius(4).Background(value.color)
+			ui.Text(c, a.quotaWindow(q)).FontSize(12).TextColor(p.secondary).SingleLine()
+		})
+		ui.Row(c).Gap(3).AlignItems(ui.End).Children(func() {
+			ui.Text(c, fmt.Sprintf("%.0f", value.fraction*100)).FontSize(size).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
+			ui.Text(c, a.tr("% 剩余")).FontSize(11).TextColor(p.secondary).Padding(0, 0, 3, 0)
+		})
+		ui.Text(c, a.resetText(q)).FontSize(11).TextColor(p.tertiary).SingleLine()
+	})
+}
+
+// quotaStatusLine reports how each agent's quota was last sampled.
+func (a *App) quotaStatusLine() string {
+	parts := []string{}
+	agent := str(a.filter["agent"])
+	if q := obj(a.data["quotaStatus"]); len(q) > 0 && agent != agentClaude {
+		status := "Codex " + a.tr("在线查询正常")
+		if reason := str(q["reason"]); reason != "" {
+			status = "Codex " + a.system(reason)
+		}
+		if at := q["attempted"]; at != nil {
 			status += " · " + shortStamp(at)
 		}
-		ui.Text(c, status).FontSize(11).TextColor(p.tertiary).SingleLine()
-	})
+		parts = append(parts, status)
+	}
+	if q := obj(a.data["claudeQuotaStatus"]); len(q) > 0 && agent != agentCodex {
+		parts = append(parts, "Claude Code "+a.tr("采样于")+" "+shortStamp(q["attempted"]))
+	}
+	return strings.Join(parts, "  ·  ")
 }
 
 func (a *App) quotaColor(i int) ui.Color {
@@ -360,6 +457,84 @@ func (a *App) metrics(c *ui.Context) {
 					a.stat(c, a.tr(item[0]), item[1])
 				}
 			})
+		})
+	})
+}
+
+// agentSplit compares the agents side by side: one capsule divides the
+// range's tokens (or cost, or requests) between them, and a tile per agent
+// scopes the app to it.
+func (a *App) agentSplit(c *ui.Context) ui.Element {
+	p := a.pal
+	rows := map[string]Object{}
+	for _, row := range objects(a.data["agents"]) {
+		rows[str(row["name"])] = row
+	}
+	metric := []string{"total", "cost", "requests"}[a.agentMetric]
+	codex, claude := number(rows[agentCodex][metric]), number(rows[agentClaude][metric])
+	share := float32(.5)
+	if codex+claude > 0 {
+		share = float32(codex / (codex + claude))
+	}
+	return a.section(c, func() {
+		a.header(c, a.tr("智能体分布"), a.tr("Codex 与 Claude Code 在当前范围内的对比"), func() {
+			a.segmented(c, &a.agentMetric, []string{"Token", a.tr("费用"), a.tr("请求")}, 210).Label(a.tr("对比指标"))
+		})
+		bar := ui.Box(c.Key("agent-bar")).Height(14).FillWidth().Radius(7).Clip()
+		ui.Local(bar, "init", func() bool { bar.Jump("grow", 0); bar.Jump("split", .5); return true })
+		grow := bar.AnimateTo("grow", 1, springGentle)
+		split := bar.AnimateTo("split", share, springSmooth)
+		bar.Draw(func(pt *ui.Painter, r ui.Rect) {
+			pt.Fill(r, p.fill, 7)
+			w := r.W * grow
+			left := max(0, w*split-1.5)
+			if left > .5 {
+				pt.FillGradient(ui.Rect{X: r.X, Y: r.Y, W: left, H: r.H}, ui.LinearGradient{From: p.agent(agentCodex).Mix(p.card, .3), To: p.agent(agentCodex), Angle: 90}, 7)
+			}
+			if right := w - left - 3; right > .5 {
+				color := p.agent(agentClaude)
+				pt.FillGradient(ui.Rect{X: r.X + left + 3, Y: r.Y, W: right, H: r.H}, ui.LinearGradient{From: color.Mix(ui.RGB(255, 255, 255), .2), To: color, Angle: 90}, 7)
+			}
+		})
+		ui.Row(c).Gap(14).AlignItems(ui.Stretch).Children(func() {
+			for _, agent := range []string{agentCodex, agentClaude} {
+				row := rows[agent]
+				value := codex
+				if agent == agentClaude {
+					value = claude
+				}
+				fraction := 0.
+				if codex+claude > 0 {
+					fraction = value / (codex + claude)
+				}
+				tile := ui.Column(c.Key(agent)).Grow(1).Basis(0).MinWidth(0).Padding(14, 16).Gap(12).Radius(12).Background(p.fill.Alpha(.45)).Focusable().Label(agentName(agent))
+				a.lift(tile)
+				if tile.Hovered() {
+					tile.Background(p.fill.Alpha(.7))
+				}
+				tile.Children(func() {
+					ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+						a.agentMark(c, agent, 32)
+						ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(1).Children(func() {
+							ui.Text(c, agentName(agent)).FontSize(14).FontWeight(650).Font(fontDisplay).SingleLine()
+							ui.Text(c, a.tr("{0} 次请求", full(row["requests"]))).FontSize(11).TextColor(p.secondary).SingleLine()
+						})
+						ui.Text(c, fmt.Sprintf("%.0f%%", fraction*100)).FontSize(26).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").LetterSpacing(-.5).TextColor(p.agent(agent)).ContentTransition(ui.ContentTransition{Numeric: true})
+					})
+					ui.Row(c).Gap(12).Children(func() {
+						cacheRate := any(nil)
+						if number(row["input"]) > 0 {
+							cacheRate = number(row["cached"]) / number(row["input"])
+						}
+						a.stat(c, "Token", compact(row["total"]))
+						a.stat(c, a.tr("等值 USD"), a.rowCost(row))
+						a.stat(c, a.tr("缓存命中"), ratio(cacheRate))
+					})
+				})
+				if tile.Clicked() || tile.Shortcut(0, ui.KeyEnter) {
+					a.setAgent(agent)
+				}
+			}
 		})
 	})
 }

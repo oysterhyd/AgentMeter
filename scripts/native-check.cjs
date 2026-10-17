@@ -22,6 +22,7 @@ try {
   const calls=JSON.parse(fs.readFileSync(path.join(out,'calls-result.json'),'utf8'));
   assert.equal(calls.verified,true,'real native call view');assert.equal(calls.rows,50);assert.ok(calls.pagination.total>50);
   assert.ok(fs.statSync(path.join(out,'calls.png')).size>1000);
+  const agents=JSON.parse(fs.readFileSync(path.join(out,'agents-result.json'),'utf8'));assert.equal(agents.verified,true,'agent scope switching');
   const ranges=JSON.parse(fs.readFileSync(path.join(out,'ranges-result.json'),'utf8'));
   assert.equal(ranges.verified,true,'time ranges and native snapshot updates');
   assert.equal(ranges.latestWins,true,'rapid range changes show the latest selection');

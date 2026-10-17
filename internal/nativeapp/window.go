@@ -2,6 +2,7 @@ package nativeapp
 
 import (
 	"github.com/egoist/mygo"
+	"local.codex.monitor/internal/monitor"
 	"time"
 )
 
@@ -20,7 +21,7 @@ func fitWindowBounds(bounds, work mygo.Rectangle) mygo.Rectangle {
 
 func mainWindowOptions(work mygo.Rectangle, hidden bool, view mygo.Content) mygo.WindowOptions {
 	bounds := fitWindowBounds(mygo.Rectangle{X: work.X + (work.Width-1380)/2, Y: work.Y + (work.Height-960)/2, Width: 1380, Height: 960}, work)
-	return mygo.WindowOptions{Title: "Codex Monitor", X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height,
+	return mygo.WindowOptions{Title: monitor.AppName, X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: bounds.Height,
 		MinWidth: min(980, max(1, work.Width-32)), MinHeight: min(700, max(1, work.Height-32)),
 		TitleBarStyle: mygo.TitleBarHidden, Vibrancy: mygo.VibrancySidebar, Hidden: hidden, Content: view, StateKey: "main"}
 }

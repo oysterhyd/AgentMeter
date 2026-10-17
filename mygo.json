@@ -1,10 +1,10 @@
 {
   "name": "Codex Monitor Native",
   "identifier": "local.codex.monitor.native",
-  "version": "2.9.4",
+  "version": "3.0.0",
   "out": "build/native",
   "updates": {
-    "github": "oysterhyd/codex-monitor",
+    "github": "oysterhyd/AgentMeter",
     "publicKey": "HXQfsCWID6xzQwgergQ0pyV2YLQTxOgqrG+1ze3k5rs=",
     "tagPrefix": "v",
     "deltas": 0

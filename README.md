@@ -1,19 +1,19 @@
 <a id="top"></a>
 
 <div align="center">
-  <img src="assets/monitor-glass.png" alt="Codex Monitor" width="104" />
-  <h1>Codex Monitor</h1>
-  <p><strong>本机 Codex 用量与额度，一眼看清。</strong></p>
-  <p>Token 消耗 · 活动日历 · 任务记录 · 5h / 每周额度 · 桌面小窗口</p>
+  <img src="assets/monitor-glass.png" alt="AgentMeter" width="104" />
+  <h1>AgentMeter</h1>
+  <p><strong>本机 Codex 与 Claude Code 的用量和额度，一眼看清。</strong></p>
+  <p>Token 消耗 · 智能体对比 · 活动日历 · 任务记录 · 5h / 每周额度 · 桌面小窗口</p>
   <p>
-    <a href="https://github.com/oysterhyd/codex-monitor/releases/latest"><img src="https://img.shields.io/github/v/release/oysterhyd/codex-monitor" alt="最新版本" /></a>
+    <a href="https://github.com/oysterhyd/AgentMeter/releases/latest"><img src="https://img.shields.io/github/v/release/oysterhyd/AgentMeter" alt="最新版本" /></a>
     <img src="https://img.shields.io/badge/Windows-x64-1671ff?logo=windows" alt="Windows x64" />
     <a href="https://mygo.egoist.dev/docs"><img src="https://img.shields.io/badge/UI-MyGO_native-008f80" alt="MyGO native UI" /></a>
     <img src="https://img.shields.io/badge/Data-Go_%2B_SQLite-007d9c?logo=go&logoColor=white" alt="Go and SQLite" />
     <img src="https://img.shields.io/badge/语言-简体中文_%2F_English-526783" alt="简体中文与 English" />
   </p>
   <p>
-    <a href="https://github.com/oysterhyd/codex-monitor/releases/latest">下载</a> ·
+    <a href="https://github.com/oysterhyd/AgentMeter/releases/latest">下载</a> ·
     <a href="#功能">功能</a> ·
     <a href="#界面预览">界面预览</a> ·
     <a href="#快速开始">快速开始</a> ·
@@ -25,25 +25,25 @@
 </div>
 
 <p align="center">
-  <img src="assets/readme/cover.png" alt="Codex Monitor 2.9.1 原生主窗口实际截图" width="1120" />
+  <img src="assets/readme/cover.png" alt="AgentMeter 3.0 原生主窗口实际截图" width="1120" />
 </p>
 
-<p align="center"><sub>2.9.1 Windows 原生界面实机截图；全部使用合成演示数据。小窗口浅色 / 深色预览见下方。</sub></p>
+<p align="center"><sub>3.0 Windows 原生界面实机截图；全部使用合成演示数据。小窗口浅色 / 深色预览见下方。</sub></p>
 
 <a id="功能"></a>
 
 ## 功能
 
-Codex Monitor 是 Windows x64 本机监测工具。主窗口使用 **MyGO native UI**，透明桌面小窗口使用 **Go / Win32 原生透明窗口**；卡片、圆球、图表、动画和 SQLite 数据服务全部在同一个 Go 进程中运行。安装包包含完整应用，无需安装 Go、Node.js、Electron 或浏览器运行时。
+AgentMeter（原 Codex Monitor）是 Windows x64 本机监测工具，同时统计 **Codex**（桌面端、CLI、VS Code 插件与 pi）和 **Claude Code**（CLI、IDE 插件与 SDK 会话，含子代理）。工具栏的智能体开关可在“全部 / Codex / Claude Code”之间切换，所有页面、筛选、日历、导出和小窗口都随之限定范围；总览的“智能体分布”并排对比两者的 Token、费用、请求和缓存命中。主窗口使用 **MyGO native UI**，透明桌面小窗口使用 **Go / Win32 原生透明窗口**；卡片、圆球、图表、动画和 SQLite 数据服务全部在同一个 Go 进程中运行。安装包包含完整应用，无需安装 Go、Node.js、Electron 或浏览器运行时。
 
 | 页面 / 模式 | 能看到什么 |
 | --- | --- |
-| 用量总览 | Token、请求次数、缓存命中率、费用估算、使用趋势及模型 / 项目排行 |
+| 用量总览 | Token、请求次数、缓存命中率、费用估算、使用趋势、智能体分布及模型 / 项目排行 |
 | 活动日历 | 年度热力图、活跃天数、连续活动、小时分布与单日详情 |
 | 历史分析 | 任务记录、逐次调用、任务内消耗占比、首字时间、失败重试事件、筛选分页与 CSV 导出 |
-| 账户额度 | 当前 Codex 账号的 5h / 每周额度、重置时间和采样历史趋势 |
+| 账户额度 | 按智能体分组：当前 Codex 与 Claude Code 账号的 5h / 每周额度、套餐、重置时间和采样历史趋势 |
 | 设置与价格 | 中英文、主题、提醒、开机启动、账号名称与价格版本 |
-| 桌面小窗口 | 与主窗口同一套样式的卡片与 Token 圆球，跟随浅色 / 深色；拖动、置顶、用量趋势和位置恢复 |
+| 桌面小窗口 | 与主窗口同一套样式的卡片与 Token 圆球，跟随浅色 / 深色；拖动、置顶、用量趋势和位置恢复；额度自动跟随最近使用的智能体，也可在右键菜单固定 |
 
 支持今日、近 7 天、近 30 天、全部和自定义时间范围。范围切换复用有上限的统计缓存，数据变化后自动失效；趋势图切换保留原有展开动画与键盘焦点，复用后台图层减少绘制开销。刷新和导出按钮与末尾筛选框右对齐。窗口隐藏系统标题栏，侧栏使用 Windows Mica 材质，顶部玻璃工具栏随滚动出现；仍可拖动、缩放、最小化和最大化。关闭窗口后继续在托盘采集，完全退出请使用托盘菜单。
 
@@ -86,6 +86,10 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 </details>
 
 <p align="center">
+  <img src="assets/readme/quota.png" alt="账户额度页面：Codex 与 Claude Code 分组的 5h / 每周额度圆环和额度历史" width="1120" />
+</p>
+
+<p align="center">
   <img src="assets/readme/widget.png" alt="桌面小窗口：5h 与周额度、实时 TPS、缓存命中率和今日 Token" width="560" />
 </p>
 
@@ -93,28 +97,28 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
   <img src="assets/readme/widget-dark.png" alt="桌面小窗口深色主题：与主窗口统一的卡片、徽章与用量趋势" width="560" />
 </p>
 
-小窗口用量汇总本机全部账号，额度仅显示当前 Codex 账号。点击右上角三点收起为圆球，点击圆球展开；右键可设置置顶，双击标题或点击标志返回主窗口。
+小窗口用量汇总本机 Codex 与 Claude Code 全部账号；额度显示一个智能体的当前账号，额度卡片右上角标明是哪一个，默认跟随最近使用的智能体。点击右上角三点收起为圆球，点击圆球展开；右键可设置置顶，双击标题或点击标志返回主窗口。
 
 <a id="快速开始"></a>
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/codex-monitor/releases/download/v2.9.4/Codex-Monitor-Setup-2.9.4.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/codex-monitor/releases/tag/v2.9.4)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/AgentMeter/releases/download/v3.0.0/AgentMeter-Setup-3.0.0.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/AgentMeter/releases/tag/v3.0.0)
 
-运行 `Codex-Monitor-Setup-2.9.4.exe`，按向导选择安装目录。默认安装到 `%LOCALAPPDATA%\Programs\Codex Monitor`，无需管理员权限，并创建桌面和开始菜单快捷方式。
+运行 `AgentMeter-Setup-3.0.0.exe`，按向导选择安装目录。新安装默认位于 `%LOCALAPPDATA%\Programs\AgentMeter`；从 Codex Monitor 升级时沿用原安装目录、数据与设置，并把快捷方式与卸载程序换成新名称。无需管理员权限。为保证内置签名更新可以原地替换，可执行文件仍名为 `Codex Monitor Native.exe`。
 
-安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 安装及登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
+安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 或 Claude Code 的使用记录；额度需要相应客户端的登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 
 从 2.6.1 起，**设置与价格 → 通用 → 软件更新 → 检查更新** 打开 MyGO 原生更新窗口，检查 GitHub 正式版本、显示版本说明并验证下载签名，安装后可重新启动。默认只手动检查；从 2.9.0 起可在同一分组开启每日自动检查和后台自动下载，下次启动时应用已验证的更新，选择会保留。更新不读取或上传监测记录。源码 `go run .` 的开发构建未启用签名更新，使用 `npm run build` 生成发布构建。内置更新替换主程序和图标；Windows 卸载登记的版本号在下一次运行安装包时同步。
 
 <details>
 <summary><strong>从源码运行或构建便携目录</strong></summary>
 
-需要 **Windows x64 和 Go 1.27.1**。npm 包装脚本另需 Node.js 22.19+；项目没有 npm 依赖。实时数据需要本机已有 Codex 安装及登录状态。
+需要 **Windows x64 和 Go 1.27.1**。npm 包装脚本另需 Node.js 22.19+；项目没有 npm 依赖。实时数据需要本机已有 Codex 或 Claude Code 的使用记录。
 
 ```powershell
-git clone https://github.com/oysterhyd/codex-monitor.git
-cd codex-monitor
+git clone https://github.com/oysterhyd/AgentMeter.git
+cd AgentMeter
 npm start
 ```
 
@@ -155,22 +159,24 @@ Go 可通过 PATH 查找，也支持 `%LOCALAPPDATA%\Programs\go\bin\go.exe` 或
 
 整体代码审查、算法改动、测试条件和优化前后指标见 [性能与代码简化报告](docs/performance.md)。
 
-制作安装包另需 **NSIS 3 与 Unicode nsProcess 插件**。可使用 PATH 中的 `makensis.exe`，或通过 `MAKENSIS` / `NSIS_PLUGIN_DIR` 指定编译器与插件目录；脚本也会识别已有 electron-builder 的 NSIS 缓存。产物为 `release/Codex-Monitor-Setup-<版本>.exe` 和 `SHA256SUMS-<版本>.txt`，打包不依赖 electron-builder。
+制作安装包另需 **NSIS 3 与 Unicode nsProcess 插件**。可使用 PATH 中的 `makensis.exe`，或通过 `MAKENSIS` / `NSIS_PLUGIN_DIR` 指定编译器与插件目录；脚本也会识别已有 electron-builder 的 NSIS 缓存。产物为 `release/AgentMeter-Setup-<版本>.exe` 和 `SHA256SUMS-<版本>.txt`，打包不依赖 electron-builder。
 
-签名更新还使用 Windows 自带 `tar.exe`。`npm run package` 通过 `MYGO_UPDATER_PRIVATE_KEY`（MyGO 格式的 Base64 私钥）或 `MYGO_UPDATER_KEY_FILE` 读取签名密钥；本机默认位置是 `%LOCALAPPDATA%\codex-monitor\update-keys\mygo-update.key`。私钥不放入仓库，`mygo.json` 仅保存对应公钥。缺少密钥时仍可生成安装包，但不会生成签名更新。持续发布须保留同一私钥；同时上传安装包、`Codex-Monitor-<版本>-windows-amd64.tar.gz`、`update-windows-amd64.json` 和校验文件，全部资产就绪后再发布 Release。`--check-updates` 可直接验证更新源，不打开监测数据库。
+签名更新还使用 Windows 自带 `tar.exe`。`npm run package` 通过 `MYGO_UPDATER_PRIVATE_KEY`（MyGO 格式的 Base64 私钥）或 `MYGO_UPDATER_KEY_FILE` 读取签名密钥；本机默认位置是 `%LOCALAPPDATA%\codex-monitor\update-keys\mygo-update.key`。私钥不放入仓库，`mygo.json` 仅保存对应公钥。缺少密钥时仍可生成安装包，但不会生成签名更新。持续发布须保留同一私钥；同时上传安装包、`AgentMeter-<版本>-windows-amd64.tar.gz`、`update-windows-amd64.json` 和校验文件，全部资产就绪后再发布 Release。`--check-updates` 可直接验证更新源，不打开监测数据库。
 
 <a id="指标口径"></a>
 
 ## 指标口径
 
 - **用量来源**：只读扫描 `%CODEX_HOME%`（默认 `%USERPROFILE%\.codex`）的 `sessions/` 与 `archived_sessions/`，计入 Codex Desktop、VS Code Codex 插件和 Codex CLI（交互终端、`codex exec` 与 MonoCode）来源。新版按响应 ID 去重，旧累计记录采用差分；CLI 与 VS Code 差分记录按会话隔离。任务明细与 CSV 导出包含来源。升级后自动迁移数据库并重读已有日志，补采此前忽略的 CLI / VS Code 历史；保留已有统计、账号、价格和清空历史的时间边界。
+- **Claude Code 来源**：只读扫描 `%CLAUDE_CONFIG_DIR%`（默认 `%USERPROFILE%\.claude`）下 `projects/` 的会话记录，包括子代理的 `subagents/` 记录。同一响应按消息 ID 去重（流式写入的多行与恢复会话复制的旧响应只计一次，并取各字段最大值）；输入 = 未缓存输入 + 缓存读取 + 缓存写入，与 Codex 口径一致，思考 Token 计入输出并单独显示为推理输出。一次用户提问为一个任务，耗时取自 Claude Code 记录的 `turn_duration`；中断、API 错误分别记为已取消、失败。子代理用量归入父会话当时进行中的任务。Claude Code 记录不含首字时间。可在设置中关闭采集。
+- **Claude Code 额度**：读取 `.claude.json` 中 Claude Code 自己缓存的用量快照（5 小时、7 天及按模型的周额度），以及登录账号的标识与套餐；不读取 `.credentials.json` 或任何令牌，也不发起网络请求。快照只在 Claude Code 运行时刷新，采样时间显示在额度页。
 - **pi 来源**：支持可识别的官方 Codex 登录来源。默认读取 `%USERPROFILE%\.pi\agent\sessions`，兼容 `openai-codex`，以及能通过当前本机官方 OAuth 配置识别的 `openai`。未知账号保持未归属；混用登录方式的历史日志需结合实际情况判断。
-- **额度**：通过本机 Codex app-server 的 `account/rateLimits/read` 查询，属于当前账号，可能包括其他设备的用量。曲线在重置和采样空档处断开。
+- **Codex 额度**：通过本机 Codex app-server 的 `account/rateLimits/read` 查询，属于当前账号，可能包括其他设备的用量。曲线在重置和采样空档处断开。
 - **缓存命中率**：缓存输入 / 输入 Token；没有输入时保持未知。
 - **实时 TPS**：最近 60 秒日志中的输出 Token / 60，包含等待时间。
 - **首字时间（TTFT）**：逐次调用采用明确的客户端 TTFT 或 Pi provider 钩子测量；未采集时显示未知，不以相邻记录时间差估算。旧日志不能补算首字时间。
 - **失败与重试**：只读 Codex 诊断数据库及可选的本机 OTel / Pi 事件；展示观测到的事件，缺少独立用量时 Token 和费用保持未知。未导出的内部重试不计入，事件数不等于完整网络重试次数。
-- **费用**：按生效时间选择价格版本，显示 API 等值 USD 估算；不是订阅实付账单，未定价记录会明确标注。
+- **费用**：按生效时间选择价格版本，显示 API 等值 USD 估算；不是订阅实付账单，未定价记录会明确标注。内置 Claude API 标准价（缓存读取按各模型价格，缓存写入 5 分钟 1.25×、1 小时 2×）；带日期后缀或 `[1m]` 的模型 ID 自动对应基础价格。价格版本可设置可选的“1 小时缓存写入”价格。
 
 近期日志每 3 秒增量扫描，全部目录每 60 秒校验；额度查询间隔可设为 60 / 120 / 300 秒。
 
@@ -178,7 +184,7 @@ Go 可通过 PATH 查找，也支持 `%LOCALAPPDATA%\Programs\go\bin\go.exe` 或
 
 ## 数据与隐私
 
-统计和设置默认保存在 `%APPDATA%\codex-monitor`，不写入 Codex / pi 原始文件。不保存对话正文、工具调用、认证 token 或 API key；账号使用身份字段的 SHA-256 摘要。无外部遥测、无跨设备同步，不创建模型请求。可选的首字采集只在 `127.0.0.1` 接收字段白名单中的统计事件，不转发到外部；错误仅保存固定类别。
+统计和设置默认保存在 `%APPDATA%\codex-monitor`（升级沿用原目录），不写入 Codex、Claude Code 或 pi 的原始文件。不保存对话正文、工具调用、认证 token 或 API key；账号使用身份字段的 SHA-256 摘要。无外部遥测、无跨设备同步，不创建模型请求。可选的首字采集只在 `127.0.0.1` 接收字段白名单中的统计事件，不转发到外部；错误仅保存固定类别。
 
 | 文件 / 目录 | 用途 |
 | --- | --- |
@@ -193,7 +199,7 @@ Go 可通过 PATH 查找，也支持 `%LOCALAPPDATA%\Programs\go\bin\go.exe` 或
 安装包中的主程序也支持命令行修复（先从托盘完全退出应用）：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Codex Monitor\Codex Monitor Native.exe" --repair-database
+& "$env:LOCALAPPDATA\Programs\AgentMeter\Codex Monitor Native.exe" --repair-database
 ```
 
 如果启动提示数据库完整性检查失败，可先从托盘完全退出应用，备份 `monitor.sqlite` 及其 `-wal` / `-shm` 文件，再从源码目录运行恢复工具（需要 Go）：
@@ -212,6 +218,7 @@ go run ./cmd/repair --source "$env:APPDATA\codex-monitor\monitor.sqlite" --outpu
 - `--offline`：禁止自动扫描和额度查询。
 - `PI_CODING_AGENT_DIR` / `PI_CODING_AGENT_SESSION_DIR`：pi 目录。
 - `MONITOR_PI_HOME` / `MONITOR_PI_SESSIONS`：监测专用 pi 目录覆盖。
+- `CLAUDE_CONFIG_DIR`：Claude Code 配置目录（同时决定 `.claude.json` 位置）；`MONITOR_CLAUDE_HOME` 为监测专用覆盖。
 
 </details>
 

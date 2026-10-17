@@ -315,6 +315,76 @@ func (a *App) rowWith(c *ui.Context, leading func(), title, description string, 
 	return r
 }
 
+// Agents are the coding clients AgentMeter reads. Each keeps one identity
+// across pages: Codex in OpenAI's monochrome, Claude Code in its terracotta.
+const (
+	agentCodex  = "codex"
+	agentClaude = "claude"
+)
+
+var agentIDs = []string{"", agentCodex, agentClaude}
+
+func agentName(agent string) string {
+	switch agent {
+	case agentCodex:
+		return "Codex"
+	case agentClaude:
+		return "Claude Code"
+	}
+	return ""
+}
+
+func (p *palette) agent(agent string) ui.Color {
+	switch agent {
+	case agentClaude:
+		if p.dark {
+			return ui.Hex("#e5896b")
+		}
+		return ui.Hex("#d97757")
+	case agentCodex:
+		return p.label
+	}
+	return p.indigo
+}
+
+// agentMark is an agent's app-icon tile: OpenAI's mark on black (white in
+// dark mode), a spark on terracotta, or a neutral grid for all agents.
+func (a *App) agentMark(c *ui.Context, agent string, size float32) ui.Element {
+	switch agent {
+	case agentCodex:
+		tile, mark := ui.RGB(0, 0, 0), ui.RGB(255, 255, 255)
+		if a.pal.dark {
+			tile, mark = mark, tile
+		}
+		b := ui.Box(c).Size(size, size).Shrink(0).Radius(size * .27).Center().Background(tile)
+		b.Children(func() { ui.Icon(c, icons["openai"]).Size(size*.66, size*.66).TextColor(mark) })
+		return b
+	case agentClaude:
+		color := a.pal.agent(agentClaude)
+		b := ui.Box(c).Size(size, size).Shrink(0).Radius(size * .27).Center().
+			LinearGradient(ui.LinearGradient{From: color.Mix(ui.RGB(255, 255, 255), .14), To: color.Mix(ui.RGB(0, 0, 0), .06), Angle: 180})
+		b.Children(func() { ui.Icon(c, icons["claude"]).Size(size*.7, size*.7).TextColor(ui.RGB(255, 255, 255)) })
+		return b
+	}
+	return a.badge(c, "squares-four-fill", a.pal.indigo, size)
+}
+
+// agentGlyph is an agent's bare mark, for inline labels.
+func (a *App) agentGlyph(c *ui.Context, agent string, size float32) ui.Element {
+	if agent == agentClaude {
+		return a.glyph(c, "claude", size, a.pal.agent(agentClaude))
+	}
+	if agent == agentCodex {
+		return a.glyph(c, "openai", size, a.pal.label)
+	}
+	return a.glyph(c, "squares-four-fill", size, a.pal.indigo)
+}
+
+// claudeModel reports whether a model is Anthropic's Claude.
+func claudeModel(model string) bool {
+	return strings.Contains(strings.ToLower(model), "claude")
+}
+
 // openAIModel reports whether a model is OpenAI's: GPT, the o series or Codex.
 func openAIModel(model string) bool {
 	m := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "openai/")
@@ -322,9 +392,11 @@ func openAIModel(model string) bool {
 		len(m) > 1 && m[0] == 'o' && m[1] >= '1' && m[1] <= '9'
 }
 
-// modelMark is a model's badge: OpenAI's monochrome logo on a black tile
-// (white in dark mode), or a neutral chip for other providers.
+// modelMark is a model's badge: its maker's agent tile, or a neutral chip.
 func (a *App) modelMark(c *ui.Context, model string, size float32) ui.Element {
+	if claudeModel(model) {
+		return a.agentMark(c, agentClaude, size)
+	}
 	if !openAIModel(model) {
 		return a.badge(c, "cpu-fill", a.pal.gray, size)
 	}
@@ -340,7 +412,9 @@ func (a *App) modelMark(c *ui.Context, model string, size float32) ui.Element {
 // modelLabel is a model name led by its small mark, for table cells.
 func (a *App) modelLabel(c *ui.Context, model string, size float32, weight int) ui.Element {
 	return ui.Row(c).MinWidth(0).Gap(6).AlignItems(ui.Center).Children(func() {
-		if openAIModel(model) {
+		if claudeModel(model) {
+			a.glyph(c, "claude", size+2, a.pal.agent(agentClaude))
+		} else if openAIModel(model) {
 			mark := ui.RGB(0, 0, 0)
 			if a.pal.dark {
 				mark = ui.RGB(255, 255, 255)

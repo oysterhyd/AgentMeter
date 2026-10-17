@@ -42,7 +42,7 @@ func AcquireProfileLock(data string) (func(), error) {
 		}
 		var p Object
 		if json.Unmarshal(b, &p) != nil || num(p["pid"]) <= 0 || processAlive(int(num(p["pid"]))) {
-			return nil, fmt.Errorf("另一个 Codex Monitor 正在使用此数据目录，请先退出")
+			return nil, fmt.Errorf("另一个 %s 正在使用此数据目录，请先退出", AppName)
 		}
 		current, e := os.ReadFile(file)
 		if e != nil || !bytes.Equal(current, b) {

@@ -47,7 +47,7 @@ func (s *Store) newActivity(f Object, now time.Time) *activityAccumulator {
 	year := start.Year()
 	where := ""
 	values := []any{}
-	for _, p := range [][2]string{{"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}} {
+	for _, p := range [][2]string{{"agent", "u.agent"}, {"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}} {
 		if truth(f[p[0]]) {
 			where += " AND " + p[1] + "=?"
 			values = append(values, f[p[0]])
@@ -58,7 +58,7 @@ func (s *Store) newActivity(f Object, now time.Time) *activityAccumulator {
 	a := &activityAccumulator{now: now, year: year, lo: iso(start), hi: iso(end), today: now.Format("2006-01-02"), first: first,
 		days: map[string]*activityDay{}, sessions: map[string]bool{}}
 	a.args = append([]any{a.lo, a.hi}, values...)
-	a.query = "SELECT u.ts,u.session,u.model,u.input,u.cached,u.output,u.cache_write " + join + " WHERE u.ts>=? AND u.ts<?" + where + " ORDER BY u.ts"
+	a.query = "SELECT u.ts,u.session,u.model,u.input,u.cached,u.output,u.cache_write,u.cache_write_1h " + join + " WHERE u.ts>=? AND u.ts<?" + where + " ORDER BY u.ts"
 	return a
 }
 
@@ -174,7 +174,12 @@ func (a *activityAccumulator) result() Object {
 }
 
 func (s *Store) Widget(now time.Time) Object {
-	account := s.get("currentAccount")
+	agent := s.widgetQuotaAgent()
+	key, statusKey := "currentAccount", "quotaStatus"
+	if agent == AgentClaude {
+		key, statusKey = "currentClaudeAccount", "claudeQuotaStatus"
+	}
+	account := s.get(key)
 	if !truth(account) {
 		account = Unknown
 	}
@@ -229,10 +234,10 @@ func (s *Store) Widget(now time.Time) Object {
 		cacheRate = cached / input
 	}
 	var status any
-	if q := obj(s.get("quotaStatus")); q["account"] == account {
+	if q := obj(s.get(statusKey)); q["account"] == account {
 		status = q
 	}
-	r := Object{"account": account, "usageScope": "all", "total": total, "previous": previous, "change": change, "cacheRate": cacheRate, "tps": output / 60, "speed": speed, "timeline": timeline, "quotas": chosen, "scan": s.get("scan"), "quotaStatus": status, "language": s.settings()["language"]}
+	r := Object{"quotaAgent": agent, "account": account, "usageScope": "all", "total": total, "previous": previous, "change": change, "cacheRate": cacheRate, "tps": output / 60, "speed": speed, "timeline": timeline, "quotas": chosen, "scan": s.get("scan"), "quotaStatus": status, "language": s.settings()["language"]}
 	if bucket != nil {
 		r["bucket"] = bucket
 	}
@@ -246,7 +251,8 @@ func widgetBucket(quotas []Object) any {
 			return true
 		}
 		previous := text(current)
-		return candidate != previous && (candidate == "codex" || previous != "codex" && candidate < previous)
+		primary := func(b string) bool { return b == "codex" || b == "claude" }
+		return candidate != previous && (primary(candidate) || !primary(previous) && candidate < previous)
 	}
 	for _, q := range quotas {
 		bucket := text(q["bucket"])
@@ -265,4 +271,25 @@ func widgetBucket(quotas []Object) any {
 
 func (s *Store) latestQuotas(account any) []Object {
 	return s.mustQuery("SELECT q.* FROM (SELECT DISTINCT account,bucket,slot FROM quotas WHERE account=?) b JOIN quotas q ON q.rowid=(SELECT rowid FROM quotas WHERE account=b.account AND bucket=b.bucket AND slot=b.slot ORDER BY ts DESC,rowid DESC LIMIT 1)", account)
+}
+
+// widgetQuotaAgent is the agent whose quota the widget shows: the chosen one,
+// or automatically the one used most recently that has a quota snapshot.
+func (s *Store) widgetQuotaAgent() string {
+	choice := text(s.settings()["widgetQuotaAgent"])
+	if choice == AgentCodex || choice == AgentClaude {
+		return choice
+	}
+	claude := s.get("currentClaudeAccount")
+	if !truth(claude) || claude == Unknown || len(s.mustOne("SELECT 1 FROM quotas WHERE account=? LIMIT 1", claude)) == 0 {
+		return AgentCodex
+	}
+	codex := s.get("currentAccount")
+	if !truth(codex) || len(s.mustOne("SELECT 1 FROM quotas WHERE account=? LIMIT 1", codex)) == 0 {
+		return AgentClaude
+	}
+	if text(s.mustOne("SELECT agent FROM usage ORDER BY ts DESC LIMIT 1")["agent"]) == AgentClaude {
+		return AgentClaude
+	}
+	return AgentCodex
 }

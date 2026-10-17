@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"local.codex.monitor/internal/monitor"
 )
 
 // The widget is drawn with the app's design system: the same palette, type
@@ -92,6 +93,20 @@ func widgetBadge(c *ui.Context, name string, x, y, size float32, color ui.Color)
 	b := widgetBox(c, x, y, size, size).Radius(size * .27).Center().
 		LinearGradient(ui.LinearGradient{From: color.Mix(ui.RGB(255, 255, 255), .16), To: color, Angle: 180})
 	b.Children(func() { ui.Icon(c, icons[name]).Size(size*.6, size*.6).TextColor(ui.RGB(255, 255, 255)) })
+	return b
+}
+
+// widgetAgentMark is the app's agent tile at an absolute position.
+func widgetAgentMark(c *ui.Context, pal *palette, agent string, x, y, size float32) ui.Element {
+	tile, mark, glyph := ui.RGB(0, 0, 0), ui.RGB(255, 255, 255), "openai"
+	if pal.dark {
+		tile, mark = mark, tile
+	}
+	if agent == agentClaude {
+		tile, mark, glyph = pal.agent(agentClaude), ui.RGB(255, 255, 255), "claude"
+	}
+	b := widgetBox(c, x, y, size, size).Radius(size * .27).Center().Background(tile)
+	b.Children(func() { ui.Icon(c, icons[glyph]).Size(size*.68, size*.68).TextColor(mark) })
 	return b
 }
 
@@ -350,8 +365,8 @@ func (p *widgetPainter) cardView(c *ui.Context) {
 	if p.brand != nil {
 		ui.Image(c, p.brand).Absolute().Left(18).Top(20.5).Size(40, 40).Radius(10).Shadow(0, 2, 6, 0, ui.RGBA(0, 0, 0, .14))
 	}
-	widgetText(c, "Codex Monitor", 68, 19, 290, 18, 22, pal.label, 650).Font(fontDisplay).LetterSpacing(-.3)
-	widgetText(c, m.t("本机用量 · 全部账号", "Local usage · all accounts"), 68, 44.7, 300, 12, 17.6, pal.secondary, 400)
+	widgetText(c, monitor.AppName, 68, 19, 290, 18, 22, pal.label, 650).Font(fontDisplay).LetterSpacing(-.3)
+	widgetText(c, m.t("Codex 与 Claude Code · 全部账号", "Codex & Claude Code · all accounts"), 68, 44.7, 300, 12, 17.6, pal.secondary, 400)
 	status, color := m.status(now, false)
 	ui.Row(c).Absolute().Right(64).Top(28.5).Height(24).Padding(0, 10).Gap(6).Radius(999).AlignItems(ui.Center).
 		Background(color.Alpha(.14)).Children(func() {
@@ -641,6 +656,10 @@ func (p *widgetPainter) metricView(c *ui.Context, i int) {
 	p.panel(c, r, 14, i)
 	color := m.metricColor(i)
 	widgetBadge(c, metric.Icon, r.X+12, r.Y+12-hover, 24, color).Rotate(-6 * hover)
+	if i < 2 {
+		// Quota tiles name the agent whose account they show.
+		widgetAgentMark(c, pal, m.quotaAgent(), r.X+r.W-30, r.Y+15-hover, 18)
+	}
 	widgetText(c, metric.Label, r.X+12, r.Y+43, r.W-22, 12, 17, pal.secondary, 500)
 	value := widgetPercent(metric.Value)
 	if metric.Speed {

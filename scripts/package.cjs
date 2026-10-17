@@ -5,7 +5,7 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const version = require('../package.json').version;
 const bundle = path.join(root, 'build', 'native');
-const installer = path.join(root, 'release', `Codex-Monitor-Setup-${version}.exe`);
+const installer = path.join(root, 'release', `AgentMeter-Setup-${version}.exe`);
 
 function files(directory, prefix = '') {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -73,7 +73,10 @@ function compile(options = {}) {
   fs.writeFileSync(uninstallManifest, '\uFEFF' + lines.join('\n') + '\n');
   const legacyManifest = path.join(__dirname, 'legacy-app-files.nsh');
   const definitions = {
-    APP_NAME: options.name || 'Codex Monitor',
+    APP_NAME: options.name || 'AgentMeter',
+    // 2.x display name, whose shortcuts and uninstaller an upgrade removes.
+    APP_LEGACY_NAME: options.legacyName || 'Codex Monitor',
+    // Signed updates replace files by name, so the executable keeps its 2.x name.
     APP_EXE: options.exe || 'Codex Monitor Native.exe',
     APP_UNINSTALL_ID: options.uninstallId || '7eb26a54-5515-59fa-b127-ae9477be5900',
     APP_LOGIN_ID: options.loginId || 'Codex Monitor Native',

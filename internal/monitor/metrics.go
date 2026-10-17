@@ -52,12 +52,34 @@ func indexPrices(prices []Object) priceIndex {
 	return index
 }
 func (index priceIndex) calculate(r Object) usageCost {
-	prices, ts := index[text(r["model"])], text(r["ts"])
+	model, ts := text(r["model"]), text(r["ts"])
+	prices, ok := index[model]
+	if !ok {
+		// Remember the canonical match (or its absence) for later rows.
+		prices = index[canonicalModel(model)]
+		index[model] = prices
+	}
 	i := sort.Search(len(prices), func(i int) bool { return text(prices[i]["effective"]) <= ts })
 	if i < len(prices) {
 		return calculateCost(r, prices[i])
 	}
 	return usageCost{}
+}
+
+// canonicalModel maps provider spellings of a model to its price-list ID:
+// "anthropic/claude-x", "claude-x-20260101", "claude-x[1m]", "claude-x@20260101".
+func canonicalModel(model string) string {
+	m := strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range []string{"anthropic/", "anthropic.", "openai/"} {
+		m = strings.TrimPrefix(m, prefix)
+	}
+	if i := strings.IndexAny(m, "[@"); i > 0 {
+		m = m[:i]
+	}
+	if n := len(m); n > 9 && m[n-9] == '-' && strings.Trim(m[n-8:], "0123456789") == "" {
+		m = m[:n-9]
+	}
+	return m
 }
 
 type usageCost struct {
@@ -70,7 +92,14 @@ func calculateCost(r, p Object) usageCost {
 		return usageCost{}
 	}
 	plain := math.Max(0, num(r["input"])-num(r["cached"])-num(r["cache_write"]))
-	in := plain*num(p["input"]) + num(r["cached"])*num(p["cached"]) + num(r["cache_write"])*num(p["cache_write"])
+	// One-hour cache writes cost more; without a 1h price they fall back to
+	// the ordinary cache-write price, as every Codex row does.
+	long := math.Min(num(r["cache_write_1h"]), num(r["cache_write"]))
+	longPrice := num(p["cache_write"])
+	if p["cache_write_1h"] != nil {
+		longPrice = num(p["cache_write_1h"])
+	}
+	in := plain*num(p["input"]) + num(r["cached"])*num(p["cached"]) + (num(r["cache_write"])-long)*num(p["cache_write"]) + long*longPrice
 	out := num(r["output"]) * num(p["output"])
 	return usageCost{in / 1e6, out / 1e6, (in + out) / 1e6, num(r["cached"]) * (num(p["input"]) - num(p["cached"])) / 1e6, p}
 }
@@ -168,7 +197,11 @@ func (r *ranking) rank() []Object {
 func (s *Store) resolve(f Object) Object {
 	f = clone(f)
 	if f["account"] == "current" {
-		a := s.get("currentAccount")
+		key := "currentAccount"
+		if f["agent"] == AgentClaude {
+			key = "currentClaudeAccount"
+		}
+		a := s.get(key)
 		if !truth(a) {
 			a = Unknown
 		}
@@ -316,9 +349,18 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 		}
 		available = kept
 	}
+	if truth(f["agent"]) && optionsWanted {
+		kept := []Object{}
+		for _, r := range available {
+			if r["agent"] == f["agent"] {
+				kept = append(kept, r)
+			}
+		}
+		available = kept
+	}
 	conditions := []string{"u.ts>=?", "u.ts<?"}
 	params := []any{lo, hi}
-	for _, pair := range [][2]string{{"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}} {
+	for _, pair := range [][2]string{{"agent", "u.agent"}, {"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}} {
 		if truth(f[pair[0]]) {
 			conditions = append(conditions, pair[1]+"=?")
 			params = append(params, f[pair[0]])
@@ -338,6 +380,10 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 			tc = append(tc, "t.session=?")
 			tp = append(tp, f["session"])
 		}
+		if truth(f["agent"]) {
+			tc = append(tc, "t.agent=?")
+			tp = append(tp, f["agent"])
+		}
 		if truth(f["project"]) {
 			tc = append(tc, "s.project=?")
 			tp = append(tp, f["project"])
@@ -345,7 +391,7 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 		turns = s.mustQuery("SELECT t.* FROM turns t LEFT JOIN sessions s ON s.id=t.session WHERE "+strings.Join(tc, " AND ")+" ORDER BY t.started DESC,t.id DESC", tp...)
 	}
 	sums := Object{"input": 0., "cached": 0., "output": 0., "reasoning": 0., "cache_write": 0., "cost": 0., "saved": 0., "unpriced": 0., "requests": 0., "legacyRequests": 0.}
-	maps := map[string]*ranking{"models": newRanking(), "projects": newRanking(), "tasks": newRanking(), "timeline": newRanking()}
+	maps := map[string]*ranking{"models": newRanking(), "projects": newRanking(), "tasks": newRanking(), "timeline": newRanking(), "agents": newRanking()}
 	hourly := !truth(f["range"]) || f["range"] == "today"
 	var calendar *activityAccumulator
 	var activity any
@@ -353,7 +399,7 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 	reuseActivity := false
 	if has("all", "overview", "activity") {
 		activityStart, activityEnd := activityBounds(f, now)
-		activityKey = jsonText(Object{"account": f["account"], "model": f["model"], "session": f["session"], "project": f["project"], "start": iso(activityStart), "end": iso(activityEnd), "day": now.In(time.Local).Format("2006-01-02 MST -0700"), "zone": time.Local.String()})
+		activityKey = jsonText(Object{"agent": f["agent"], "account": f["account"], "model": f["model"], "session": f["session"], "project": f["project"], "start": iso(activityStart), "end": iso(activityEnd), "day": now.In(time.Local).Format("2006-01-02 MST -0700"), "zone": time.Local.String()})
 		if cached := s.snapshotCache.calendars.get(activityKey); cached != nil {
 			activity = copySnapshot(cached)
 		} else {
@@ -369,7 +415,7 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 	if analytics {
 		var sum struct{ requests, legacy, unpriced, cost, saved, input, cached, output, reasoning, cacheWrite float64 }
 		bucketMinute, bucket := "", ""
-		s.each("SELECT u.ts,u.model,u.session,u.kind,u.input,u.cached,u.output,u.reasoning,u.cache_write "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
+		s.each("SELECT u.ts,u.model,u.session,u.kind,u.input,u.cached,u.output,u.reasoning,u.cache_write,u.cache_write_1h,u.agent "+usageFrom(f)+" WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(u Object) {
 			p := pricing.calculate(u)
 			if reuseActivity {
 				calendar.add(u, p)
@@ -389,6 +435,7 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 				sum.cost += p.total
 				sum.saved += p.saved
 			}
+			maps["agents"].add(text(u["agent"]), u, p)
 			for _, v := range views {
 				key := text(u["model"])
 				if v == "projects" {
@@ -523,12 +570,17 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 		account = Unknown
 	}
 	active := s.activeTasks(f, now)
-	quotas := s.latestQuotas(account)
+	quotas := []Object{}
 	history := []Object{}
 	samples := 0
-	if historyWanted {
-		history, samples = s.quotaHistory(account, lo, hi)
+	for _, a := range s.quotaAccounts(f) {
+		quotas = append(quotas, s.latestQuotas(a)...)
+		if historyWanted {
+			h, n := s.quotaHistory(a, lo, hi)
+			history, samples = append(history, h...), samples+n
+		}
 	}
+	sort.SliceStable(history, func(i, j int) bool { return text(history[i]["ts"]) < text(history[j]["ts"]) })
 	sums["total"] = num(sums["input"]) + num(sums["output"])
 	sums["cacheRate"] = nil
 	if num(sums["input"]) > 0 {
@@ -575,21 +627,23 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 		r["time"] = t.UnixMilli()
 	}
 	options := Object{"models": []string{}, "projects": []string{}, "sessions": []Object{}}
-	accountArgs := []any{}
+	// Filters on indexed columns shared by the option and coverage queries.
+	scope, scopeArgs := "", []any{}
+	for _, key := range []string{"account", "agent"} {
+		if truth(f[key]) {
+			scope += " AND " + key + "=?"
+			scopeArgs = append(scopeArgs, f[key])
+		}
+	}
 	accountClause := ""
-	if truth(f["account"]) {
-		accountArgs = append(accountArgs, f["account"])
-		accountClause = "WHERE account=?"
+	if scope != "" {
+		accountClause = "WHERE " + scope[5:]
 	}
 	if optionsWanted {
 		models := []string{}
 		// A loose index scan: one index seek per distinct model, not one row
 		// visit per usage record.
-		scope, scopeArgs := "", []any{}
-		if truth(f["account"]) {
-			scope, scopeArgs = " AND account=?", []any{f["account"], f["account"]}
-		}
-		for _, r := range s.mustQuery("WITH RECURSIVE m(model) AS (SELECT MIN(model) FROM usage WHERE model IS NOT NULL"+scope+" UNION ALL SELECT (SELECT MIN(model) FROM usage WHERE model>m.model"+scope+") FROM m WHERE m.model IS NOT NULL) SELECT model FROM m WHERE model IS NOT NULL", scopeArgs...) {
+		for _, r := range s.mustQuery("WITH RECURSIVE m(model) AS (SELECT MIN(model) FROM usage WHERE model IS NOT NULL"+scope+" UNION ALL SELECT (SELECT MIN(model) FROM usage WHERE model>m.model"+scope+") FROM m WHERE m.model IS NOT NULL) SELECT model FROM m WHERE model IS NOT NULL", append(append([]any{}, scopeArgs...), scopeArgs...)...) {
 			models = append(models, text(r["model"]))
 		}
 		projects := []string{}
@@ -618,15 +672,47 @@ func (s *Store) snapshot(f Object, start, end, now time.Time) (out Object, err e
 		activity = calendar.result()
 		s.snapshotCache.calendars.put(activityKey, obj(activity))
 	}
-	var status any
+	var status, claudeStatus any
 	if q := obj(s.get("quotaStatus")); q["account"] == account {
 		status = q
+	}
+	if q := obj(s.get("claudeQuotaStatus")); truth(q["account"]) && q["account"] == s.get("currentClaudeAccount") {
+		claudeStatus = q
 	}
 	priceOutput := []Object{}
 	if has("all", "settings") {
 		priceOutput = prices
 	}
-	return Object{"activity": activity, "range": Object{"start": lo, "end": hi}, "sums": sums, "performance": performance, "models": maps["models"].rank(), "projects": maps["projects"].rank(), "tasks": tasks, "timeline": timeline, "turns": records, "quotas": quotas, "records": Object{"page": recordPage, "pageSize": pageSize, "total": len(recordTurns), "pages": pages}, "quotaHistorySamples": samples, "quotaHistory": history, "quotaAccount": account, "scan": s.get("scan"), "quotaStatus": status, "currentAccount": s.get("currentAccount"), "accounts": s.mustQuery("SELECT * FROM accounts ORDER BY label,id"), "coverage": s.mustOne("SELECT (SELECT MIN(ts) FROM usage "+accountClause+") first,(SELECT MAX(ts) FROM usage "+accountClause+") last,(SELECT COUNT(*) FROM usage "+accountClause+") records", append(append(append([]any{}, accountArgs...), accountArgs...), accountArgs...)...), "options": options, "settings": s.settings(), "prices": priceOutput, "recovery": s.get("recovery")}, nil
+	return Object{"activity": activity, "range": Object{"start": lo, "end": hi}, "sums": sums, "performance": performance, "models": maps["models"].rank(), "projects": maps["projects"].rank(), "tasks": tasks, "timeline": timeline, "turns": records, "quotas": quotas, "records": Object{"page": recordPage, "pageSize": pageSize, "total": len(recordTurns), "pages": pages}, "quotaHistorySamples": samples, "quotaHistory": history, "quotaAccount": account, "scan": s.get("scan"), "quotaStatus": status, "claudeQuotaStatus": claudeStatus, "currentAccount": s.get("currentAccount"), "currentClaudeAccount": s.get("currentClaudeAccount"), "agents": maps["agents"].rank(), "agentsPresent": s.agentsPresent(), "accounts": s.mustQuery("SELECT * FROM accounts ORDER BY label,id"), "coverage": s.mustOne("SELECT (SELECT MIN(ts) FROM usage "+accountClause+") first,(SELECT MAX(ts) FROM usage "+accountClause+") last,(SELECT COUNT(*) FROM usage "+accountClause+") records", append(append(append([]any{}, scopeArgs...), scopeArgs...), scopeArgs...)...), "options": options, "settings": s.settings(), "prices": priceOutput, "recovery": s.get("recovery")}, nil
+}
+
+// quotaAccounts are the accounts whose quotas a view shows: the chosen
+// account, or else the current Codex and Claude Code accounts in scope.
+func (s *Store) quotaAccounts(f Object) []any {
+	if truth(f["account"]) {
+		return []any{f["account"]}
+	}
+	accounts := []any{}
+	if f["agent"] != AgentClaude {
+		a := s.get("currentAccount")
+		if !truth(a) {
+			a = Unknown
+		}
+		accounts = append(accounts, a)
+	}
+	if a := s.get("currentClaudeAccount"); f["agent"] != AgentCodex && truth(a) && a != Unknown {
+		accounts = append(accounts, a)
+	}
+	return accounts
+}
+
+// agentsPresent lists the agents with usage, one index seek per agent.
+func (s *Store) agentsPresent() []string {
+	agents := []string{}
+	for _, r := range s.mustQuery("WITH RECURSIVE a(agent) AS (SELECT MIN(agent) FROM usage UNION ALL SELECT (SELECT MIN(agent) FROM usage WHERE agent>a.agent) FROM a WHERE a.agent IS NOT NULL) SELECT agent FROM a WHERE agent IS NOT NULL") {
+		agents = append(agents, text(r["agent"]))
+	}
+	return agents
 }
 
 func (s *Store) quotaHistory(account any, lo, hi string) ([]Object, int) {
@@ -705,7 +791,7 @@ func (s *Store) Export(f Object, now time.Time) (string, error) {
 	}
 	conditions := []string{"u.ts>=?", "u.ts<?"}
 	params := []any{iso(start), iso(end)}
-	for _, p := range [][2]string{{"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}, {"recordStatus", "t.status"}} {
+	for _, p := range [][2]string{{"agent", "u.agent"}, {"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"project", "s.project"}, {"recordStatus", "t.status"}} {
 		if truth(f[p[0]]) {
 			conditions = append(conditions, p[1]+"=?")
 			params = append(params, f[p[0]])
@@ -722,7 +808,7 @@ func (s *Store) Export(f Object, now time.Time) (string, error) {
 		params = append([]any{f["project"]}, params...)
 	}
 	pricing := indexPrices(s.prices())
-	cols := []string{"ts", "model", "session", "turn", "input", "cached", "output", "reasoning", "cache_write", "cost", "saved", "priceId", "kind", "account", "source", "origin"}
+	cols := []string{"ts", "model", "session", "turn", "input", "cached", "output", "reasoning", "cache_write", "cost", "saved", "priceId", "kind", "account", "source", "origin", "agent", "cache_write_1h"}
 	b := newCSV(cols)
 	s.each("SELECT u.*,s.project,s.source,s.origin,t.id record_id,t.session record_session,t.model record_model FROM usage u LEFT JOIN sessions s ON s.id=u.session"+join+" LEFT JOIN turns t ON t.id=u.turn AND t.session=u.session WHERE "+strings.Join(conditions, " AND ")+" ORDER BY u.ts", params, func(r Object) {
 		if !matches(Object{"id": r["record_id"], "session": r["record_session"], "model": r["record_model"]}, r["project"], search) {

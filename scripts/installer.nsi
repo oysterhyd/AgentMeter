@@ -13,7 +13,7 @@ Name "${APP_NAME}"
 OutFile "${INSTALLER_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
 InstallDirRegKey HKCU "${UNINSTALL_KEY}" "InstallLocation"
-BrandingText "Codex Monitor · MyGO native UI"
+BrandingText "${APP_NAME} · MyGO native UI"
 Icon "${BUNDLE_DIR}\icon.ico"
 UninstallIcon "${BUNDLE_DIR}\icon.ico"
 VIProductVersion "${APP_VERSION}.0"
@@ -21,7 +21,7 @@ VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
 VIAddVersionKey "FileDescription" "${APP_NAME} Setup"
-VIAddVersionKey "LegalCopyright" "Codex Monitor"
+VIAddVersionKey "LegalCopyright" "${APP_NAME}"
 ShowInstDetails show
 ShowUninstDetails show
 
@@ -38,10 +38,10 @@ ShowUninstDetails show
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
-LangString LaunchText ${LANG_SIMPCHINESE} "启动 Codex Monitor"
-LangString LaunchText ${LANG_ENGLISH} "Launch Codex Monitor"
-LangString RunningText ${LANG_SIMPCHINESE} "请先从系统托盘完全退出 Codex Monitor，再点击重试。安装程序不会强制终止应用。"
-LangString RunningText ${LANG_ENGLISH} "Exit Codex Monitor from its system tray, then click Retry. Setup will not force the app to stop."
+LangString LaunchText ${LANG_SIMPCHINESE} "启动 ${APP_NAME}"
+LangString LaunchText ${LANG_ENGLISH} "Launch ${APP_NAME}"
+LangString RunningText ${LANG_SIMPCHINESE} "请先从系统托盘完全退出 ${APP_NAME}，再点击重试。安装程序不会强制终止应用。"
+LangString RunningText ${LANG_ENGLISH} "Exit ${APP_NAME} from its system tray, then click Retry. Setup will not force the app to stop."
 LangString ArchitectureText ${LANG_SIMPCHINESE} "此安装包需要 Windows x64。"
 LangString ArchitectureText ${LANG_ENGLISH} "This installer requires Windows x64."
 LangString InstallErrorText ${LANG_SIMPCHINESE} "无法写入安装目录，请确认目录权限并完全退出应用。"
@@ -86,7 +86,7 @@ Function un.onInit
   Call un.CheckRunning
 FunctionEnd
 
-Section "Codex Monitor"
+Section "${APP_NAME}"
   Call CheckRunning
   SetOutPath "$INSTDIR"
   SetOverwrite on
@@ -104,16 +104,23 @@ Section "Codex Monitor"
   widget_legacy_done:
   ClearErrors
   WriteUninstaller "$INSTDIR\Uninstall ${APP_NAME}.exe"
+  ; 2.x shipped its uninstaller and shortcuts under the previous product name.
+  ; The executable keeps its name so signed in-place updates still apply.
+  !if "${APP_LEGACY_NAME}" != "${APP_NAME}"
+  Delete "$INSTDIR\Uninstall ${APP_LEGACY_NAME}.exe"
+  Delete "$DESKTOP\${APP_LEGACY_NAME}.lnk"
+  Delete "$SMPROGRAMS\${APP_LEGACY_NAME}.lnk"
+  !endif
   CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\icon.ico"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\icon.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Codex Monitor"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\icon.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '$\"$INSTDIR\Uninstall ${APP_NAME}.exe$\"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '$\"$INSTDIR\Uninstall ${APP_NAME}.exe$\" /S'
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "URLInfoAbout" "https://github.com/oysterhyd/codex-monitor"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "URLInfoAbout" "https://github.com/oysterhyd/AgentMeter"
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "EstimatedSize" ${APP_SIZE_KB}
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1

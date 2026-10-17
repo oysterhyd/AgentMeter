@@ -108,7 +108,15 @@ func (a *App) heatColor(level int) ui.Color {
 	if level == 0 {
 		return p.fill
 	}
-	return p.green.Alpha([]float32{0, .3, .52, .76, 1}[level])
+	return a.heatTint().Alpha([]float32{0, .3, .52, .76, 1}[level])
+}
+
+// heatTint is the activity color: green, or Claude's when scoped to it.
+func (a *App) heatTint() ui.Color {
+	if str(a.filter["agent"]) == agentClaude {
+		return a.pal.agent(agentClaude)
+	}
+	return a.pal.green
 }
 
 func (a *App) activity(c *ui.Context, compactView bool) {
@@ -291,10 +299,10 @@ func (a *App) heatGrid(c *ui.Context, h *heatmap, today string) {
 			}
 			pt.Fill(box, color.Alpha(float32(t)*float32(color.A)/255), radius)
 			if cell.date == today {
-				pt.Stroke(box, p.green, radius, 1.5)
+				pt.Stroke(box, a.heatTint(), radius, 1.5)
 			}
 			if i == selected || i == lit {
-				pt.Stroke(ui.Rect{X: box.X - 2, Y: box.Y - 2, W: box.W + 4, H: box.H + 4}, map[bool]ui.Color{true: p.label, false: p.green}[i == selected], radius+2, 1.5)
+				pt.Stroke(ui.Rect{X: box.X - 2, Y: box.Y - 2, W: box.W + 4, H: box.H + 4}, map[bool]ui.Color{true: p.label, false: a.heatTint()}[i == selected], radius+2, 1.5)
 			}
 		}
 	})
@@ -346,7 +354,7 @@ func (a *App) activityDetails(c *ui.Context, activity Object) {
 						bar := ui.Box(c).Height(6).Grow(1).Basis(0).Radius(3).Background(p.fill)
 						fraction := float32(number(day["total"]) / peak)
 						bar.Draw(func(pt *ui.Painter, r ui.Rect) {
-							pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: max(r.H, r.W*fraction), H: r.H}, p.green, 3)
+							pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: max(r.H, r.W*fraction), H: r.H}, a.heatTint(), 3)
 						})
 						ui.Text(c, compact(day["total"])).Width(56).FontSize(12).FontWeight(600).FontFeatures("tnum").TextAlign(ui.End).NoWrap()
 						a.glyph(c, "caret-right", 12, p.tertiary)

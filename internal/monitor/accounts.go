@@ -150,6 +150,12 @@ func (s *Store) observe(home, now, source string) error {
 	if source == "pi-openai" {
 		a = readPiAccount(home, "openai")
 	}
+	return s.recordAccount(a, now, source)
+}
+
+// recordAccount extends the source's current observation window, or opens a
+// new one when the signed-in account changed.
+func (s *Store) recordAccount(a Object, now, source string) error {
 	id := Unknown
 	if a != nil {
 		id = text(a["id"])
@@ -168,8 +174,11 @@ func (s *Store) observe(home, now, source string) error {
 	if e != nil {
 		return e
 	}
-	if source == "codex" {
+	switch source {
+	case "codex":
 		return s.set("currentAccount", id)
+	case "claude":
+		return s.set("currentClaudeAccount", id)
 	}
 	return nil
 }
