@@ -27,6 +27,7 @@ try {
   assert.equal(ranges.latestWins,true,'rapid range changes show the latest selection');
   assert.equal(ranges.vscodeExport,true,'VS Code usage reaches CSV export');
   assert.ok(fs.statSync(path.join(out,'ranges.png')).size>1000);
+  if(!result.reducedMotion)assert.notDeepEqual(fs.readFileSync(path.join(out,'ranges-enter.png')),fs.readFileSync(path.join(out,'ranges.png')),'range changes must retain the trend reveal animation');
   const widget=JSON.parse(fs.readFileSync(path.join(out,'widget-result.json'),'utf8'));
   const switching=JSON.parse(fs.readFileSync(path.join(out,'switch-performance.json'),'utf8'));
   const appearance=JSON.parse(fs.readFileSync(path.join(out,'appearance-result.json'),'utf8'));

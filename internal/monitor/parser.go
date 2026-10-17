@@ -123,15 +123,16 @@ func (s *Store) addUsage(id string, u Object, ts string, state Object, kind stri
 	if !truth(turn) {
 		turn = nil
 	}
-	mode := "IGNORE"
+	mode := "INSERT"
+	conflict := " ON CONFLICT(id) DO UPDATE SET model=excluded.model WHERE usage.session=excluded.session AND (usage.model IS NULL OR usage.model IN ('','unknown')) AND excluded.model!='unknown'"
 	if s.replay {
-		mode = "REPLACE"
+		mode, conflict = "INSERT OR REPLACE", ""
 	}
-	if e := s.exec("INSERT OR "+mode+" INTO usage(id,session,turn,ts,model,input,cached,output,reasoning,cache_write,kind,account) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", id, state["session"], turn, ts, model, input, cached, output, reason, write, kind, account); e != nil {
+	if e := s.exec(mode+" INTO usage(id,session,turn,ts,model,input,cached,output,reasoning,cache_write,kind,account) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"+conflict, id, state["session"], turn, ts, model, input, cached, output, reason, write, kind, account); e != nil {
 		return e
 	}
 	if truth(turn) {
-		return s.exec("UPDATE turns SET model=?,last_seen=? WHERE id=?", model, ts, turn)
+		return s.exec("UPDATE turns SET model=COALESCE(NULLIF(?,'unknown'),model),last_seen=? WHERE id=?", model, ts, turn)
 	}
 	return nil
 }
@@ -149,10 +150,17 @@ func (s *Store) process(o, state Object, raw []byte) error {
 		return "unknown"
 	}
 	if o["type"] == "session_meta" {
-		for k := range state {
-			delete(state, k)
+		// Resume metadata can be appended mid-turn without a new turn_context.
+		// Preserve the same session's model and cumulative/modern usage state.
+		if !truth(state["session"]) || state["session"] != p["id"] {
+			for k := range state {
+				delete(state, k)
+			}
 		}
-		state["session"], state["source"], state["project"], state["created"] = p["id"], codexSource(p), p["cwd"], ts
+		if !truth(state["created"]) {
+			state["created"] = ts
+		}
+		state["session"], state["source"], state["project"] = p["id"], codexSource(p), p["cwd"]
 		if !truth(state["project"]) {
 			state["project"] = UnassignedProject
 		}
@@ -173,17 +181,23 @@ func (s *Store) process(o, state Object, raw []byte) error {
 	}
 	cleared := s.clearedAt()
 	allowed := (cleared == "" || ts > cleared) && ts >= text(state["created"])
+	setModel := func(value any) {
+		if value, ok := value.(string); ok && value != "unknown" && modelName.MatchString(value) {
+			state["model"] = value
+		}
+	}
 	switch o["type"] {
 	case "turn_context":
-		state["model"] = p["model"]
-		if !truth(state["model"]) {
-			state["model"] = "unknown"
-		}
+		setModel(p["model"])
 		if truth(p["turn_id"]) {
 			state["turn"] = p["turn_id"]
 		}
+	case "world_state":
+		setModel(obj(p["state"])["model"])
 	case "event_msg":
 		switch p["type"] {
+		case "thread_settings_applied":
+			setModel(obj(p["thread_settings"])["model"])
 		case "task_started":
 			turn := p["turn_id"]
 			if !truth(turn) {

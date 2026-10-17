@@ -226,7 +226,7 @@ func TestChartWorkerPreservesGapsAndReleasesRetiredLayers(t *testing.T) {
 	a.snapshotKey = "changed-range"
 	tt.Frame()
 	if a.chartRenderer != retired {
-		t.Fatal("changing range restarted the chart's entrance and focus state")
+		t.Fatal("changing range discarded the chart renderer")
 	}
 	points = []chartPoint{{Time: 1, Value: 10}, {Time: 2, Value: 20}}
 	a.snapshotRevision++

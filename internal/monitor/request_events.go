@@ -107,7 +107,9 @@ func (s *Store) reconcileRequestEvents() error {
 				args = append(args, event["turn"])
 			}
 			if event["model"] != "unknown" {
-				conditions += " AND model=?"
+				// Missing rollout metadata must not prevent an otherwise unique
+				// token/time match. Known conflicting models remain excluded.
+				conditions += " AND (model=? OR model IN ('','unknown') OR model IS NULL)"
 				args = append(args, event["model"])
 			}
 			rows = s.mustQuery("SELECT id,turn,account FROM usage WHERE "+conditions+" LIMIT 2", args...)
@@ -124,6 +126,12 @@ func (s *Store) reconcileRequestEvents() error {
 		if err := s.exec("UPDATE OR IGNORE request_events SET usage_id=?,turn=?,account=?,association=? WHERE id=?", row["id"], row["turn"], row["account"], association, event["id"]); err != nil {
 			return err
 		}
+	}
+	// Only an explicitly associated completion can repair a missing model.
+	// Never propagate a session's latest model across unrelated requests.
+	if err := s.exec(`UPDATE usage AS u SET model=(SELECT e.model FROM request_events e WHERE e.usage_id=u.id AND e.model NOT IN ('','unknown'))
+        WHERE (u.model IS NULL OR u.model IN ('','unknown')) AND EXISTS(SELECT 1 FROM request_events e WHERE e.usage_id=u.id AND e.model NOT IN ('','unknown'))`); err != nil {
+		return err
 	}
 	// Pi can emit a failed provider attempt before the successful response has an ID.
 	// Its explicit request key joins those events to the eventual message/turn.

@@ -56,9 +56,12 @@ func (a *App) smokeRanges() {
 	csv, err := a.client.Call(ctx, "export", f)
 	cancel()
 	ideExport := err == nil && strings.Contains(str(csv), `"vscode"`)
-	// Timing above measures snapshot commits; capture after the existing
-	// segmented/numeric transitions settle. Other smoke profiles may omit IDEs.
-	time.Sleep(springSnappy.Spring.Duration + 60*time.Millisecond)
+	// Capture both the restored range reveal and its settled frame. Snapshot
+	// timing above remains independent of animation duration.
+	if png, err := a.win.CapturePage(); err == nil {
+		_ = os.WriteFile(filepath.Join(a.options.Capture, "ranges-enter.png"), png, 0600)
+	}
+	time.Sleep(motionReveal + 60*time.Millisecond)
 	if png, err := a.win.CapturePage(); err == nil {
 		_ = os.WriteFile(filepath.Join(a.options.Capture, "ranges.png"), png, 0600)
 	}

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var interesting = regexp.MustCompile(`"type"\s*:\s*"(session_meta|turn_context|token_usage_record|task_started|task_complete|turn_aborted|token_count)"`)
+var interesting = regexp.MustCompile(`"type"\s*:\s*"(session_meta|turn_context|world_state|thread_settings_applied|token_usage_record|task_started|task_complete|turn_aborted|token_count)"`)
 var interestingPi = regexp.MustCompile(`^\s*\{\s*"type"\s*:\s*"(?:session|message|usage)"`)
 
 func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full bool, progress func(Object)) (Object, error) {

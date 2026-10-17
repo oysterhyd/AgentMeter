@@ -53,8 +53,8 @@ func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, perce
 		a.empty(c, a.tr("这个时间范围内还没有记录"))
 		return
 	}
-	// A new filter changes the data, not this chart's identity. Keep its
-	// reveal/focus state so a range switch does not replay the 780ms entrance.
+	// Keep the renderer and focus stable across filters. Replay the reveal
+	// using the cached layer instead of rebuilding the chart for each frame.
 	column := ui.Column(c.Key("chart-" + key)).Gap(6)
 	renderer := ui.Local(column, "renderer", func() chartRenderer { return chartRenderer{} })
 	if a.chartRenderer != nil && a.chartRenderer != renderer && a.chartRenderer.name == key {
@@ -102,7 +102,7 @@ func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, perce
 		ui.Local(plot, "init", func() bool { plot.Jump("reveal", 0); return true })
 		filterKey := ui.Local(plot, "filter", func() string { return a.snapshotKey })
 		if *filterKey != a.snapshotKey {
-			plot.Jump("reveal", 1)
+			plot.Jump("reveal", 0)
 			*filterKey = a.snapshotKey
 		}
 		reveal := plot.AnimateTo("reveal", 1, ui.Animation{Duration: motionReveal, Ease: motionEase})
@@ -141,7 +141,19 @@ func (a *App) chartColored(c *ui.Context, key string, points []chartPoint, perce
 				p.Fill(ui.Rect{X: r.X, Y: line - .5, W: r.W, H: 1}, pal.separator.Alpha(float32(pal.separator.A)/255*map[bool]float32{true: 1, false: .6}[fraction == 0]), 0)
 				p.Text(r.X+r.W+10, line-7, labels[i], 10, pal.tertiary)
 			}
-			p.Clip(ui.Rect{X: r.X - 6, Y: r.Y - 6, W: (r.W + 12) * reveal, H: r.H + 12}, 0, func() {
+			clip := ui.Rect{X: r.X - 6, Y: r.Y - 6, W: r.W + 12, H: r.H + 12}
+			if reveal < 1 {
+				// Animate along the observations, not the empty part of a full
+				// day's axis. Sparse early-morning usage still gets the full reveal.
+				begin, end := float32(0), r.W
+				if last > first {
+					begin = r.W * float32(bounded((points[0].Time-first)/(last-first), 0, 1))
+					end = r.W * float32(bounded((points[len(points)-1].Time-first)/(last-first), 0, 1))
+				}
+				clip.X += begin
+				clip.W = (end - begin + 12) * reveal
+			}
+			p.Clip(clip, 0, func() {
 				renderer.draw(p, r, first, last, accent, c.Invalidate)
 			})
 		})
