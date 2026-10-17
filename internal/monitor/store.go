@@ -118,23 +118,25 @@ func parse(v any) time.Time {
 }
 func jsonText(v any) string { b, _ := json.Marshal(v); return string(b) }
 func defaultSettings() Object {
-	return Object{"theme": "system", "language": "zh-CN", "muted": false, "autoStart": false, "quotaInterval": 60, "codexExecutable": "", "clearedAt": nil, "telemetryEnabled": true, "telemetryPort": 4319}
+	return Object{"theme": "system", "language": "zh-CN", "muted": false, "autoStart": false, "quotaInterval": 60, "codexExecutable": "", "clearedAt": nil, "telemetryEnabled": true, "telemetryPort": 4319, "claudeEnabled": true, "widgetQuotaAgent": "auto"}
 }
 
 type Store struct {
-	db                     *sql.DB
-	tx                     *sql.Tx
-	intervals              []Object
-	replay                 bool
-	legacyReplay           *legacyUsageReplay
-	piOAuth                bool
-	catalog                map[string]time.Time
-	catalogOrder           []string
-	piFiles                map[string]bool
-	lastDiscovery          time.Time
-	catalogHome, catalogPi string
-	scanBoundary           *string
-	snapshotCache          snapshotCache
+	db             *sql.DB
+	tx             *sql.Tx
+	intervals      []Object
+	replay         bool
+	legacyReplay   *legacyUsageReplay
+	piOAuth        bool
+	catalog        map[string]time.Time
+	catalogOrder   []string
+	kinds          map[string]sourceKind
+	seen           map[string]fileStamp
+	lastDiscovery  time.Time
+	catalogSources Sources
+	claudeConfig   claudeConfigCache
+	scanBoundary   *string
+	snapshotCache  snapshotCache
 }
 
 func Open(file string) (*Store, error) {
@@ -272,13 +274,41 @@ func (s *Store) initialize() error {
 					}
 				}
 			}
-			return s.set("legacy-model-prices-v1", true)
+			if e := s.set("legacy-model-prices-v1", true); e != nil {
+				return e
+			}
+		}
+		if !truth(s.get("claude-prices-v1")) {
+			for _, p := range claudePrices {
+				r, e := s.one("SELECT 1 FROM prices WHERE model=? AND retired=0", p[0])
+				if e != nil {
+					return e
+				}
+				if r == nil {
+					if e = s.exec("INSERT INTO prices(model,effective,input,cached,output,cache_write,cache_write_1h,source) VALUES(?,?,?,?,?,?,?,?)", p[0], "1970-01-01T00:00:00.000Z", p[1], p[2], p[3], p[4], p[5], claudePriceSource); e != nil {
+						return e
+					}
+				}
+			}
+			return s.set("claude-prices-v1", true)
 		}
 		return nil
 	})
 }
 
 const officialSource = "Standard 标准价 · 短上下文 · 官网核对 2026-09-09"
+
+// Claude API list prices per million tokens: input, cache read, output,
+// 5-minute cache write (1.25× input) and 1-hour cache write (2× input).
+const claudePriceSource = "Claude API 标准价 · 核对 2026-10-06；缓存写入 5 分钟 1.25×、1 小时 2×"
+
+var claudePrices = [][]any{
+	{"claude-fable-5-1", 10., .25, 50., 12.5, 20.}, {"claude-fable-5", 10., 1., 50., 12.5, 20.},
+	{"claude-opus-5-5", 4., .2, 20., 5., 8.}, {"claude-opus-5", 5., .5, 25., 6.25, 10.},
+	{"claude-opus-4-8", 5., .5, 25., 6.25, 10.}, {"claude-opus-4-7", 5., .5, 25., 6.25, 10.}, {"claude-opus-4-6", 5., .5, 25., 6.25, 10.},
+	{"claude-sonnet-5-5", 2., .2, 10., 2.5, 4.}, {"claude-sonnet-5", 2., .2, 10., 2.5, 4.}, {"claude-sonnet-4-6", 3., .3, 15., 3.75, 6.},
+	{"claude-haiku-5-5", .1, .01, .5, .125, .2}, {"claude-haiku-4-5", 1., .1, 5., 1.25, 2.},
+}
 
 var officialPrices = [][]any{{"gpt-5.5", 5., .5, 30., 0.}, {"gpt-5.4", 2.5, .25, 15., 0.}, {"gpt-6-astra", 10., 1., 50., 12.5}, {"gpt-5.6-sol", 4., .4, 20., 5.}, {"gpt-5.6-terra", 2., .2, 12., 2.5}, {"gpt-5.6-luna", .2, .02, 1.2, .25}}
 

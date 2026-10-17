@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -249,6 +250,11 @@ func (h *widgetHost) activate(action string) {
 		h.hide(true)
 		h.app.widgetMode = false
 		h.app.updateTray()
+	default:
+		if agent, ok := strings.CutPrefix(action, "quota:"); ok {
+			// The saved choice emits an update, which refreshes the widget.
+			h.app.setting("widgetQuotaAgent", agent)
+		}
 	}
 }
 func (a *App) toggleWidget() {

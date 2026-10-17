@@ -16,7 +16,10 @@ func (s *Store) saveSettings(input Object) (Object, error) {
 	if v := text(input["theme"]); v == "system" || v == "light" || v == "dark" {
 		r["theme"] = v
 	}
-	for _, k := range []string{"muted", "autoStart", "telemetryEnabled"} {
+	if v := text(input["widgetQuotaAgent"]); v == "auto" || v == AgentCodex || v == AgentClaude {
+		r["widgetQuotaAgent"] = v
+	}
+	for _, k := range []string{"muted", "autoStart", "telemetryEnabled", "claudeEnabled"} {
 		if v, ok := input[k].(bool); ok {
 			r[k] = v
 		}
@@ -50,6 +53,13 @@ func (s *Store) savePrice(p Object) ([]Object, error) {
 			return nil, fmt.Errorf("价格须为有限的非负数")
 		}
 	}
+	var long any
+	if v, ok := p["cache_write_1h"]; ok && v != nil {
+		if !validNumber(v) || num(v) > 100000 {
+			return nil, fmt.Errorf("价格须为有限的非负数")
+		}
+		long = v
+	}
 	t := parse(p["effective"])
 	if t.IsZero() {
 		return nil, fmt.Errorf("生效时间无效")
@@ -62,11 +72,11 @@ func (s *Store) savePrice(p Object) ([]Object, error) {
 		if r["source"] != "手动设置" || truth(r["retired"]) {
 			return nil, fmt.Errorf("仅可修改有效的手动价格版本")
 		}
-		if e := s.exec("UPDATE prices SET model=?,effective=?,input=?,cached=?,output=?,cache_write=? WHERE id=?", p["model"], iso(t), p["input"], p["cached"], p["output"], p["cache_write"], p["id"]); e != nil {
+		if e := s.exec("UPDATE prices SET model=?,effective=?,input=?,cached=?,output=?,cache_write=?,cache_write_1h=? WHERE id=?", p["model"], iso(t), p["input"], p["cached"], p["output"], p["cache_write"], long, p["id"]); e != nil {
 			return nil, e
 		}
 	} else {
-		if e := s.seedPrice([]any{p["model"], p["input"], p["cached"], p["output"], p["cache_write"]}, "手动设置", iso(t)); e != nil {
+		if e := s.exec("INSERT INTO prices(model,effective,input,cached,output,cache_write,cache_write_1h,source) VALUES(?,?,?,?,?,?,?,?)", p["model"], iso(t), p["input"], p["cached"], p["output"], p["cache_write"], long, "手动设置"); e != nil {
 			return nil, e
 		}
 	}

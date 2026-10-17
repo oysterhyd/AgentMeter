@@ -331,10 +331,10 @@ func (a *App) recordDetail(c *ui.Context, row Object) {
 	p := a.pal
 	ui.Column(c.Key(a.expanded)).Padding(16).Gap(12).Radius(12).Background(p.fill.Alpha(.5)).Transition(ui.ElementTransition{Animation: &springSnappy, Enter: &ui.Motion{Y: -8}}).Children(func() {
 		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-			a.badge(c, "terminal-window-fill", p.indigo, 26)
+			a.agentMark(c, str(row["agent"]), 26)
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(1).Children(func() {
 				ui.Text(c, str(row["id"])).FontSize(13).FontWeight(600).SingleLine().Selectable()
-				a.caption(c, str(row["project"])+" · "+str(row["origin"])).SingleLine()
+				a.caption(c, str(row["project"])+" · "+a.originLabel(row)).SingleLine()
 			})
 			if a.iconButton(c, "x", a.tr("收起")).Clicked() {
 				a.toggleRecord(row, a.expanded)
@@ -352,4 +352,21 @@ func (a *App) recordDetail(c *ui.Context, row Object) {
 		a.caption(c, a.tr("任务耗时")+" "+a.duration(row["duration"])+" · "+a.tr("首 Token 延迟")+" "+a.duration(row["ttft"]))
 		a.taskCalls(c, row)
 	})
+}
+
+// originLabel names the client a task ran in, such as "Claude Code · CLI".
+func (a *App) originLabel(row Object) string {
+	origin := str(row["origin"])
+	if str(row["agent"]) != agentClaude {
+		return origin
+	}
+	switch str(row["source"]) {
+	case "vscode":
+		origin = a.tr("IDE 插件") + " (" + origin + ")"
+	case "desktop":
+		origin = a.tr("桌面端")
+	default:
+		origin = strings.ToUpper(origin)
+	}
+	return "Claude Code · " + origin
 }

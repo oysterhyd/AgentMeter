@@ -1,9 +1,9 @@
 {
-  "name": "codex-monitor",
-  "version": "2.9.4",
-  "description": "Native Go Windows Codex desktop and CLI usage monitor",
+  "name": "agentmeter",
+  "version": "3.0.0",
+  "description": "Native Go Windows usage monitor for Codex and Claude Code",
   "private": true,
-  "author": "Codex Monitor",
+  "author": "AgentMeter",
   "scripts": {
     "dev": "node scripts/native.cjs start",
     "start": "node scripts/native.cjs start",

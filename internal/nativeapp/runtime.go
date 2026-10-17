@@ -47,7 +47,7 @@ type App struct {
 	busy, loading, commandOpen, customOpen, quitting    bool
 	startDate, endDate                                  time.Time
 	selectedDay, expanded                               string
-	activityMetric                                      int
+	activityMetric, agentMetric                         int
 	chartSelection                                      map[string]int
 	chartSource                                         chartSourceCache
 	chartRenderer                                       *chartRenderer
@@ -93,7 +93,7 @@ type App struct {
 func NewApp() *App {
 	return &App{pal: &lightPalette, data: Object{}, filter: Object{"range": "today"}, recordPage: 1, breakdownPage: 1, callPage: 1, detailPage: 1, selectedCall: -1, selectedRecord: -1, mainFade: widgetMotion{target: 1}, snapshotPage: -1,
 		startDate: time.Now(), endDate: time.Now(), translations: map[string]string{}, systemTranslations: map[string]string{}, accountDrafts: map[string]string{},
-		priceForm: map[string]string{"model": "", "input": "", "cached": "", "output": "", "cache_write": "0", "effective": "1970-01-01T00:00"}}
+		priceForm: map[string]string{"model": "", "input": "", "cached": "", "output": "", "cache_write": "0", "cache_write_1h": "", "effective": "1970-01-01T00:00"}}
 }
 
 var pageIDs = []string{"overview", "activity", "history", "quota", "settings"}
@@ -175,11 +175,15 @@ func Run(resources fs.FS) error {
 	if o.Offline || (os.Getenv("MONITOR_TEST_DATA") != "" && os.Getenv("MONITOR_PI_HOME") == "") {
 		piHome, piSessions = "", ""
 	}
+	claudeHome, claudeConfig := claudePaths()
+	if o.Offline || (os.Getenv("MONITOR_TEST_DATA") != "" && os.Getenv("MONITOR_CLAUDE_HOME") == "") {
+		claudeHome, claudeConfig = "", ""
+	}
 	piExtension, err := fs.ReadFile(resources, "integrations/pi/codex-monitor.ts")
 	if err != nil {
 		return err
 	}
-	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
+	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, ClaudeHome: claudeHome, ClaudeConfig: claudeConfig, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
 	if err != nil {
 		if o.Snapshot == "" && !o.Stdio {
 			mygo.App.WhenReady(func() {
@@ -188,12 +192,12 @@ func Run(resources fs.FS) error {
 				if dialogErr == nil && errors.Is(err, monitor.ErrDatabaseIntegrity) && result.Button == 1 {
 					backup, repairErr := monitor.RepairProfile(o.Data)
 					if repairErr == nil {
-						_, _ = mygo.Dialog.Message(mygo.MessageOptions{Type: mygo.MessageInfo, Title: "Codex Monitor", Message: "数据库已修复，即将重新启动", Detail: "原数据库已保留在：\n" + backup, Buttons: []string{"重新启动"}})
+						_, _ = mygo.Dialog.Message(mygo.MessageOptions{Type: mygo.MessageInfo, Title: monitor.AppName, Message: "数据库已修复，即将重新启动", Detail: "原数据库已保留在：\n" + backup, Buttons: []string{"重新启动"}})
 						err = nil
 						mygo.App.Relaunch()
 						return
 					}
-					_, _ = mygo.Dialog.Message(mygo.MessageOptions{Type: mygo.MessageError, Title: "Codex Monitor 修复失败", Message: "无法完整恢复监测数据", Detail: repairErr.Error() + "\n原数据库未被清空。", Buttons: []string{"关闭"}})
+					_, _ = mygo.Dialog.Message(mygo.MessageOptions{Type: mygo.MessageError, Title: monitor.AppName + " 修复失败", Message: "无法完整恢复监测数据", Detail: repairErr.Error() + "\n原数据库未被清空。", Buttons: []string{"关闭"}})
 				}
 				mygo.App.Quit()
 			})
@@ -256,7 +260,7 @@ func Run(resources fs.FS) error {
 				a.win.Hide()
 			}
 		})
-		a.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: icon, ToolTip: "Codex Monitor · 本机用量监测"})
+		a.tray, err = mygo.NewTray(mygo.TrayOptions{Icon: icon, ToolTip: monitor.AppName + " · Codex & Claude Code"})
 		if err == nil {
 			a.updateTray()
 		} else {
@@ -292,8 +296,23 @@ func Run(resources fs.FS) error {
 	return mygo.App.Run()
 }
 
+// claudePaths finds Claude Code's config directory and .claude.json, which
+// CLAUDE_CONFIG_DIR moves together; MONITOR_CLAUDE_HOME isolates tests.
+func claudePaths() (home, config string) {
+	for _, key := range []string{"MONITOR_CLAUDE_HOME", "CLAUDE_CONFIG_DIR"} {
+		if dir := os.Getenv(key); dir != "" {
+			return dir, filepath.Join(dir, ".claude.json")
+		}
+	}
+	user, err := os.UserHomeDir()
+	if err != nil {
+		return "", ""
+	}
+	return filepath.Join(user, ".claude"), filepath.Join(user, ".claude.json")
+}
+
 func startupErrorDialog(err error) mygo.MessageOptions {
-	options := mygo.MessageOptions{Type: mygo.MessageError, Title: "Codex Monitor 无法启动", Message: "无法打开监测数据", Detail: err.Error(), Buttons: []string{"关闭"}}
+	options := mygo.MessageOptions{Type: mygo.MessageError, Title: monitor.AppName + " 无法启动", Message: "无法打开监测数据", Detail: err.Error(), Buttons: []string{"关闭"}}
 	if errors.Is(err, monitor.ErrDatabaseIntegrity) {
 		options.Buttons = append(options.Buttons, "备份并修复")
 		options.Detail += "\n\n可尝试保留全部可读取的数据并重建索引。修复成功后自动重启；原库及日志文件会保留在数据目录的 database-backups 文件夹中。"
@@ -535,6 +554,9 @@ func (a *App) notifyQuota(value any) {
 	if truth(q["muted"]) {
 		return
 	}
+	if str(q["agent"]) == "" {
+		q["agent"] = agentCodex
+	}
 	for _, group := range objects(q["groups"]) {
 		for _, slot := range []string{"primary", "secondary"} {
 			w := obj(group[slot])
@@ -550,7 +572,7 @@ func (a *App) notifyQuota(value any) {
 				r, err := a.client.Call(ctx, "notice", key)
 				cancel()
 				if err == nil && r == true {
-					_ = mygo.NewNotification(mygo.NotificationOptions{Title: "Codex 额度提醒", Body: fmt.Sprintf("%s · %.0f 分钟窗口剩余 %.0f%%", str(group["limitName"]), number(w["windowDurationMins"]), 100-number(w["usedPercent"]))}).Show()
+					_ = mygo.NewNotification(mygo.NotificationOptions{Title: agentName(str(q["agent"])) + " " + a.tr("额度提醒"), Body: fmt.Sprintf("%s · %.0f 分钟窗口剩余 %.0f%%", str(group["limitName"]), number(w["windowDurationMins"]), 100-number(w["usedPercent"]))}).Show()
 				}
 			}
 		}
@@ -561,7 +583,7 @@ func (a *App) updateTray() {
 		return
 	}
 	a.tray.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-		{Label: a.tr("打开 Codex Monitor"), Click: func(*mygo.MenuItem, *mygo.Window) { a.restore() }},
+		{Label: a.tr("打开 {0}", monitor.AppName), Click: func(*mygo.MenuItem, *mygo.Window) { a.restore() }},
 		{Label: "桌面小组件 / Desktop widget", Type: mygo.MenuItemCheckbox, Checked: a.widgetMode, Click: func(*mygo.MenuItem, *mygo.Window) { a.toggleWidget() }},
 		{Label: a.tr("刷新额度"), Click: func(*mygo.MenuItem, *mygo.Window) { a.action("refresh", nil, "数据已刷新") }},
 		{Label: a.tr("静音提醒"), Type: mygo.MenuItemCheckbox, Checked: truth(obj(a.data["settings"])["muted"]), Click: func(*mygo.MenuItem, *mygo.Window) {
@@ -592,7 +614,7 @@ func (a *App) exportCSV() {
 		delete(f, "recordStatus")
 	}
 	a.perform(func() (any, error) {
-		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: a.win, Title: a.tr("导出当前筛选的用量"), DefaultPath: "codex-usage-" + time.Now().Format("2006-01-02") + ".csv", Filters: []mygo.FileFilter{{Name: "CSV", Extensions: []string{"csv"}}}})
+		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: a.win, Title: a.tr("导出当前筛选的用量"), DefaultPath: "agentmeter-usage-" + time.Now().Format("2006-01-02") + ".csv", Filters: []mygo.FileFilter{{Name: "CSV", Extensions: []string{"csv"}}}})
 		if err != nil || path == "" {
 			return nil, err
 		}
@@ -655,6 +677,7 @@ func (a *App) smoke() {
 	a.smokeAppearance()
 	a.smokeCalls()
 	a.smokeRanges()
+	a.smokeAgents()
 	if a.options.SmokeWidget {
 		a.updateWait(func() { a.toggleWidget() })
 		deadline := time.Now().Add(15 * time.Second)

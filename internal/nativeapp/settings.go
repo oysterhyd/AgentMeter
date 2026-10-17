@@ -85,6 +85,15 @@ func (a *App) generalSettings(c *ui.Context, settings Object) {
 	a.group(c, a.tr("启动与提醒"), "", func() {
 		a.toggle(c, settings, "autoStart", "power-fill", p.green, "开机启动", "登录 Windows 后静默进入托盘")
 		a.toggle(c, settings, "muted", "bell-simple-fill", p.red, "静音额度提醒", "剩余 20% 和 10% 时提醒")
+		a.row(c, "squares-four-fill", p.teal, a.tr("小组件额度来源"), a.tr("自动显示最近使用的智能体；也可固定为 Codex 或 Claude Code"), func() {
+			current := str(settings["widgetQuotaAgent"])
+			if current == "" {
+				current = "auto"
+			}
+			if id, changed := a.popup(c, "小组件额度来源", current, []string{"auto", agentCodex, agentClaude}, []string{a.tr("自动"), "Codex", "Claude Code"}, 130); changed {
+				a.setting("widgetQuotaAgent", id)
+			}
+		})
 		a.row(c, "timer-fill", p.orange, a.tr("额度查询间隔"), "", func() {
 			if id, changed := a.popup(c, "额度查询间隔", fmt.Sprint(settings["quotaInterval"]), []string{"60", "120", "300"}, []string{"1 " + a.tr("分钟"), "2 " + a.tr("分钟"), "5 " + a.tr("分钟")}, 110); changed {
 				value, _ := strconv.Atoi(id)
@@ -127,7 +136,7 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 		}
 	}
 	a.group(c, a.tr("本机首字采集"), a.tr("历史日志没有首字时间时无法补算；客户端未导出的内部重试无法观测。"), func() {
-		a.toggle(c, settings, "telemetryEnabled", "broadcast-fill", p.teal, "记录逐次首字时间与失败重试", "保留 Desktop、CLI 和 Pi 用量采集；额外接收本机请求诊断，不保存对话、工具内容或登录凭据。")
+		a.toggle(c, settings, "telemetryEnabled", "broadcast-fill", p.teal, "记录逐次首字时间与失败重试", "保留 Desktop、CLI 和 Pi 用量采集；额外接收本机请求诊断，不保存对话、工具内容或登录凭据。Claude Code 记录不含首字时间，其任务耗时来自会话日志。")
 		if a.telemetryPortDraft == "" {
 			a.telemetryPortDraft = str(settings["telemetryPort"])
 		}
@@ -215,16 +224,30 @@ func (a *App) accountSettings(c *ui.Context) {
 func (a *App) dataSettings(c *ui.Context, settings Object) {
 	p := a.pal
 	paths := obj(a.data["paths"])
-	a.group(c, a.tr("数据来源"), a.tr("自动统计 Codex Desktop、CLI、VS Code 插件及 pi 中官方登录的 Codex 用量，不含 pi 的 API Key 和其他供应商。历史账号无法确认时保留为未归属，不改变额度查询来源。"), func() {
-		for _, entry := range []struct{ label, key, icon string }{{"Codex 数据目录", "home", "folder-open-fill"}, {"pi 会话目录", "piSessions", "folder-open-fill"}, {"监测数据库目录", "data", "database-fill"}} {
-			value := str(paths[entry.key])
-			if value == "" {
-				value = "—"
-			}
-			a.row(c, entry.icon, p.blue, a.tr(entry.label), "", func() {
-				ui.Text(c, value).FontSize(12).TextColor(p.secondary).Selectable().SingleLine().MaxWidth(360).Tooltip(value)
-			})
+	path := func(icon, label, value string) {
+		if value == "" {
+			value = "—"
 		}
+		a.row(c, icon, p.blue, a.tr(label), "", func() {
+			ui.Text(c, value).FontSize(12).TextColor(p.secondary).Selectable().SingleLine().MaxWidth(360).Tooltip(value)
+		})
+	}
+	a.group(c, "Codex", a.tr("自动统计 Codex Desktop、CLI、VS Code 插件及 pi 中官方登录的 Codex 用量，不含 pi 的 API Key 和其他供应商。历史账号无法确认时保留为未归属，不改变额度查询来源。"), func() {
+		a.rowWith(c, func() { a.agentMark(c, agentCodex, 28) }, "Codex", a.tr("桌面端、CLI、VS Code 插件与 pi"), nil)
+		path("folder-open-fill", "Codex 数据目录", str(paths["home"]))
+		path("folder-open-fill", "pi 会话目录", str(paths["piSessions"]))
+	})
+	a.group(c, "Claude Code", a.tr("读取 Claude Code 的本机会话记录（含子代理），按响应 ID 去重并保留账号归属与清空历史边界；只读取 Token 数量、模型和耗时，不保存对话或工具内容。额度来自 Claude Code 自身缓存的用量快照，不读取登录凭据。"), func() {
+		a.rowWith(c, func() { a.agentMark(c, agentClaude, 28) }, a.tr("采集 Claude Code 用量"), a.tr("CLI、IDE 插件与 SDK 会话"), func() {
+			value := truth(settings["claudeEnabled"])
+			if ui.Switch(c, &value).Label(a.tr("采集 Claude Code 用量")).Disabled(a.busy).Changed() {
+				a.setting("claudeEnabled", value)
+			}
+		})
+		path("folder-open-fill", "Claude Code 目录", str(paths["claudeHome"]))
+	})
+	a.group(c, a.tr("监测数据"), "", func() {
+		path("database-fill", "监测数据库目录", str(paths["data"]))
 		a.row(c, "", ui.Color{}, "", "", func() {
 			ui.Spacer(c)
 			if a.button(c, a.tr("打开数据目录"), "folder-open-fill").Clicked() {
@@ -255,11 +278,11 @@ func (a *App) dataSettings(c *ui.Context, settings Object) {
 		})
 	})
 	a.group(c, a.tr("数据与存储"), a.tr("所有数据留在本机，无遥测、无跨设备同步；清空历史仅删除监测数据，保留价格与设置。"), func() {
-		a.row(c, "trash-fill", p.red, a.tr("清空监测历史"), a.tr("Codex 与 pi 原始文件不会被修改。"), func() {
+		a.row(c, "trash-fill", p.red, a.tr("清空监测历史"), a.tr("Codex、Claude Code 与 pi 原始文件不会被修改。"), func() {
 			clear := a.button(c, a.tr("清空监测历史"), "").Disabled(a.busy).TextColor(p.red)
 			if clear.Clicked() {
 				a.perform(func() (any, error) {
-					r, err := mygo.Dialog.Message(mygo.MessageOptions{Parent: a.win, Type: mygo.MessageWarning, Title: a.tr("清空监测历史"), Message: a.tr("删除本应用已采集的用量和额度历史？"), Detail: a.tr("Codex 与 pi 原始文件不会被修改。仅继续采集此刻之后的数据；已有历史不会自动重新导入。价格和设置保留。"), Buttons: []string{a.tr("取消"), a.tr("清空历史")}, DefaultButton: 0, CancelButton: 0})
+					r, err := mygo.Dialog.Message(mygo.MessageOptions{Parent: a.win, Type: mygo.MessageWarning, Title: a.tr("清空监测历史"), Message: a.tr("删除本应用已采集的用量和额度历史？"), Detail: a.tr("Codex、Claude Code 与 pi 原始文件不会被修改。仅继续采集此刻之后的数据；已有历史不会自动重新导入。价格和设置保留。"), Buttons: []string{a.tr("取消"), a.tr("清空历史")}, DefaultButton: 0, CancelButton: 0})
 					if err != nil || r.Button != 1 {
 						return nil, err
 					}
@@ -276,14 +299,14 @@ func (a *App) dataSettings(c *ui.Context, settings Object) {
 
 func (a *App) prices(c *ui.Context) {
 	p := a.pal
-	labels := map[string]string{"model": "模型", "effective": "生效时间", "input": "输入", "cached": "缓存输入", "output": "输出", "cache_write": "缓存写入"}
+	labels := map[string]string{"model": "模型", "effective": "生效时间", "input": "输入", "cached": "缓存输入", "output": "输出", "cache_write": "缓存写入", "cache_write_1h": "1 小时缓存写入"}
 	title := "新增价格版本"
 	if a.priceID != nil {
 		title = "更新价格版本"
 	}
 	a.group(c, a.tr(title), a.tr("按 API 标准价估算，不代表订阅账单。")+" "+a.tr("USD / 百万 tokens")+" · YYYY-MM-DDTHH:mm "+a.tr("本地时间"), func() {
 		ui.Column(c).Padding(14, 16).Gap(12).Children(func() {
-			for _, keys := range [][]string{{"model", "effective"}, {"input", "cached", "output", "cache_write"}} {
+			for _, keys := range [][]string{{"model", "effective"}, {"input", "cached", "output", "cache_write", "cache_write_1h"}} {
 				ui.Row(c).Gap(12).Children(func() {
 					for _, key := range keys {
 						ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(5).Children(func() {
@@ -313,7 +336,10 @@ func (a *App) prices(c *ui.Context) {
 		}
 		for _, price := range prices {
 			manual := str(price["source"]) == "手动设置" && !truth(price["retired"])
-			description := stamp(price["effective"]) + " · " + a.system(str(price["source"])) + "\n" + fmt.Sprintf("%s %s · %s %s · %s %s · %s %s", a.tr("输入"), money(price["input"]), a.tr("缓存输入"), money(price["cached"]), a.tr("输出"), money(price["output"]), a.tr("缓存写入"), money(price["cache_write"]))
+			description := stamp(price["effective"]) + " · " + a.system(str(price["source"])) + "\n" + fmt.Sprintf("%s %s · %s %s · %s %s · %s %s", a.tr("输入"), unitPrice(price["input"]), a.tr("缓存输入"), unitPrice(price["cached"]), a.tr("输出"), unitPrice(price["output"]), a.tr("缓存写入"), unitPrice(price["cache_write"]))
+			if price["cache_write_1h"] != nil {
+				description += " · " + a.tr("1 小时缓存写入") + " " + unitPrice(price["cache_write_1h"])
+			}
 			model := str(price["model"])
 			a.rowWith(c.Key(str(price["id"])), func() { a.modelMark(c, model, 28) }, model+" · v"+str(price["id"]), description, func() {
 				if manual {
@@ -334,10 +360,25 @@ func (a *App) prices(c *ui.Context) {
 
 func (a *App) resetPrice() {
 	a.priceID = nil
-	a.priceForm = map[string]string{"model": "", "input": "", "cached": "", "output": "", "cache_write": "0", "effective": "1970-01-01T00:00"}
+	a.priceForm = map[string]string{"model": "", "input": "", "cached": "", "output": "", "cache_write": "0", "cache_write_1h": "", "effective": "1970-01-01T00:00"}
+}
+
+// unitPrice shows a per-million price without rounding away small rates
+// such as $0.01 cache reads.
+func unitPrice(v any) string {
+	if v == nil {
+		return "—"
+	}
+	s := strconv.FormatFloat(number(v), 'f', -1, 64)
+	if !strings.Contains(s, ".") {
+		s += ".00"
+	} else if len(s)-strings.Index(s, ".") == 2 {
+		s += "0"
+	}
+	return "$" + s
 }
 func (a *App) editPrice(price Object, edit bool) {
-	for _, key := range []string{"model", "input", "cached", "output", "cache_write"} {
+	for _, key := range []string{"model", "input", "cached", "output", "cache_write", "cache_write_1h"} {
 		a.priceForm[key] = str(price[key])
 	}
 	a.priceForm["effective"] = dateValue(str(price["effective"])).Local().Format("2006-01-02T15:04")
@@ -355,6 +396,15 @@ func (a *App) savePrice() {
 			return
 		}
 		p[key] = value
+	}
+	// Blank keeps one-hour cache writes at the ordinary cache-write price.
+	if raw := strings.TrimSpace(a.priceForm["cache_write_1h"]); raw != "" {
+		value, err := strconv.ParseFloat(raw, 64)
+		if err != nil || value < 0 {
+			a.errorText = a.tr("价格须为有限的非负数")
+			return
+		}
+		p["cache_write_1h"] = value
 	}
 	effective := dateValue(a.priceForm["effective"])
 	if effective.IsZero() {

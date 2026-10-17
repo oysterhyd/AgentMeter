@@ -41,7 +41,7 @@ func (s *Store) callRows(f Object, lo, hi string, pricing priceIndex) []Object {
 func (s *Store) eachCall(f Object, lo, hi string, pricing priceIndex, visit func(Object)) {
 	conditions := []string{"u.ts>=?", "u.ts<?"}
 	args := []any{lo, hi}
-	for _, pair := range [][2]string{{"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"turn", "u.turn"}, {"project", "s.project"}} {
+	for _, pair := range [][2]string{{"agent", "u.agent"}, {"account", "u.account"}, {"model", "u.model"}, {"session", "u.session"}, {"turn", "u.turn"}, {"project", "s.project"}} {
 		if truth(f[pair[0]]) {
 			conditions = append(conditions, pair[1]+"=?")
 			args = append(args, f[pair[0]])
@@ -85,7 +85,7 @@ func (s *Store) eachCall(f Object, lo, hi string, pricing priceIndex, visit func
 		conditions = append(conditions, "e.kind=?")
 		args = append(args, f["callStatus"])
 	}
-	for _, pair := range [][2]string{{"account", "e.account"}, {"model", "e.model"}, {"session", "e.session"}, {"turn", "e.turn"}, {"project", "s.project"}} {
+	for _, pair := range [][2]string{{"agent", "e.agent"}, {"account", "e.account"}, {"model", "e.model"}, {"session", "e.session"}, {"turn", "e.turn"}, {"project", "s.project"}} {
 		if truth(f[pair[0]]) {
 			conditions = append(conditions, pair[1]+"=?")
 			args = append(args, f[pair[0]])
@@ -375,7 +375,7 @@ func csvRows(cols []string, rows []Object) string {
 
 func (s *Store) exportCalls(f Object, lo, hi string) string {
 	rows := filterCalls(s.callRows(f, lo, hi, indexPrices(s.prices())), f)
-	cols := []string{"ts", "id", "usage_id", "response_id", "session", "turn", "model", "status", "input", "cached", "output", "reasoning", "cache_write", "cost", "inputCost", "outputCost", "priceId", "ttft", "association", "attempt", "http_status", "error_code", "kind"}
+	cols := []string{"ts", "id", "usage_id", "response_id", "session", "turn", "model", "status", "input", "cached", "output", "reasoning", "cache_write", "cost", "inputCost", "outputCost", "priceId", "ttft", "association", "attempt", "http_status", "error_code", "kind", "agent"}
 	return csvRows(cols, rows)
 }
 

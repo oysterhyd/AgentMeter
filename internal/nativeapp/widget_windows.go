@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"local.codex.monitor/internal/monitor"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -156,7 +157,7 @@ func newWidgetWindow(host *widgetHost, ctx context.Context) (*widgetWindow, erro
 	}
 	x, y = widgetClamp(x, y, ui.Rect{X: float32(area.X), Y: float32(area.Y), W: float32(area.Width), H: float32(area.Height)})
 	instance, _, _ := wModule.Call(0)
-	handle, _, err := wCreate.Call(0x80000|0x80, uintptr(unsafe.Pointer(widgetUTF16(widgetClass))), uintptr(unsafe.Pointer(widgetUTF16("Codex Monitor Widget"))), 0x80000000, widgetSigned(int(float32(x)*s)), widgetSigned(int(float32(y)*s)), uintptr(int(widgetWidth*s)), uintptr(int(widgetHeight*s)), 0, 0, instance, 0)
+	handle, _, err := wCreate.Call(0x80000|0x80, uintptr(unsafe.Pointer(widgetUTF16(widgetClass))), uintptr(unsafe.Pointer(widgetUTF16(monitor.AppName+" Widget"))), 0x80000000, widgetSigned(int(float32(x)*s)), widgetSigned(int(float32(y)*s)), uintptr(int(widgetWidth*s)), uintptr(int(widgetHeight*s)), 0, 0, instance, 0)
 	if handle == 0 {
 		return nil, fmt.Errorf("无法创建原生小窗口：%w", err)
 	}
@@ -490,12 +491,18 @@ func (w *widgetWindow) menu() {
 	w.hideTooltip()
 	menu, _, _ := wMenuCreate.Call()
 	defer wMenuDestroy.Call(menu)
-	for i, label := range []string{"打开主窗口 / Open monitor", "置顶 / Always on top", "刷新数据 / Refresh", "", "隐藏小组件 / Hide widget"} {
+	choice := str(obj(w.host.app.data["settings"])["widgetQuotaAgent"])
+	if choice == "" {
+		choice = "auto"
+	}
+	quotaChoices := []string{"auto", agentCodex, agentClaude}
+	for i, label := range []string{"打开主窗口 / Open monitor", "置顶 / Always on top", "刷新数据 / Refresh", "", "隐藏小组件 / Hide widget", "",
+		"额度：自动 / Quota: automatic", "额度：Codex / Quota: Codex", "额度：Claude Code / Quota: Claude Code"} {
 		flags := uintptr(0)
-		if i == 1 && w.host.saved.Topmost {
+		if i == 1 && w.host.saved.Topmost || i >= 6 && quotaChoices[i-6] == choice {
 			flags = 8
 		}
-		if i == 3 {
+		if label == "" {
 			flags = 0x800
 		}
 		wMenuAppend.Call(menu, flags, uintptr(i+1), uintptr(unsafe.Pointer(widgetUTF16(label))))
@@ -512,6 +519,8 @@ func (w *widgetWindow) menu() {
 		w.host.activate("refresh")
 	case 5:
 		w.host.activate("hide")
+	case 7, 8, 9:
+		w.host.activate("quota:" + quotaChoices[id-7])
 	}
 }
 func (w *widgetWindow) key(key uintptr) {

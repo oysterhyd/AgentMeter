@@ -151,7 +151,12 @@ func (m *widgetModel) quota(minutes float64, now time.Time) (any, string) {
 			continue
 		}
 		expired := number(q["resets"]) > 0 && number(q["resets"])*1000 <= float64(now.UnixMilli())
-		stale := now.Sub(parseTime(q["ts"])) > 5*time.Minute || !truth(obj(m.Data["quotaStatus"])["ok"])
+		// Claude Code refreshes its cached snapshot only while it runs.
+		freshness := 5 * time.Minute
+		if m.quotaAgent() == agentClaude {
+			freshness = 30 * time.Minute
+		}
+		stale := now.Sub(parseTime(q["ts"])) > freshness || !truth(obj(m.Data["quotaStatus"])["ok"])
 		prefix := ""
 		if expired {
 			prefix = m.t("等待重置更新 · ", "Awaiting reset · ")
@@ -162,13 +167,22 @@ func (m *widgetModel) quota(minutes float64, now time.Time) (any, string) {
 		if number(q["resets"]) > 0 {
 			tip += " · " + m.t("重置 ", "Resets ") + time.Unix(int64(number(q["resets"])), 0).Local().Format("2006/01/02 15:04:05")
 		}
-		tip += " · " + m.t("当前 Codex 账号", "Current Codex account")
+		tip += " · " + m.t("当前 "+agentName(m.quotaAgent())+" 账号", "Current "+agentName(m.quotaAgent())+" account")
 		if expired {
 			return nil, tip
 		}
 		return max(0., 100-number(q["used"])), tip
 	}
-	return nil, m.t("当前账号暂无额度快照", "No quota snapshot for this account")
+	return nil, m.t("当前 "+agentName(m.quotaAgent())+" 账号暂无额度快照", "No quota snapshot for the current "+agentName(m.quotaAgent())+" account")
+}
+
+// quotaAgent is the agent whose quota the widget shows; older services
+// reported only Codex.
+func (m *widgetModel) quotaAgent() string {
+	if str(m.Data["quotaAgent"]) == agentClaude {
+		return agentClaude
+	}
+	return agentCodex
 }
 func (m *widgetModel) metrics(now time.Time) []widgetMetric {
 	five, fiveTip := m.quota(300, now)
@@ -215,7 +229,8 @@ func widgetPercent(v any) string {
 	return strings.TrimSuffix(strings.TrimSuffix(fmt.Sprintf("%.1f", number(v)), "0"), ".") + "%"
 }
 func (m *widgetModel) scope() string {
-	return m.t("本机全部账号（含未归属 pi）；额度仅显示当前 Codex 账号。", "All local accounts, including unassigned Pi; quotas show only the current Codex account.")
+	name := agentName(m.quotaAgent())
+	return m.t("本机 Codex 与 Claude Code 全部账号（含未归属 pi）；额度仅显示当前 "+name+" 账号。", "All local Codex and Claude Code accounts, including unassigned Pi; quotas show only the current "+name+" account.")
 }
 func widgetMetricRect(i int) ui.Rect {
 	return ui.Rect{X: 30 + 127.25*float32(i), Y: 91, W: 118.25, H: 120}

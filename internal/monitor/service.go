@@ -14,8 +14,11 @@ import (
 
 type Config struct {
 	Data, Home, PiHome, PiSessions, Version string
-	PiExtension                             []byte
-	Offline                                 bool
+	// ClaudeHome is Claude Code's config directory (with projects/);
+	// ClaudeConfig is its .claude.json. Empty disables Claude Code.
+	ClaudeHome, ClaudeConfig string
+	PiExtension              []byte
+	Offline                  bool
 }
 type Event struct {
 	Name string
@@ -42,6 +45,7 @@ type Service struct {
 	quotaBusy      bool
 	quotaBinary    string
 	refreshPending []chan reply
+	claudeQuota    any // the Claude Code sample last announced
 	telemetry      *http.Server
 }
 
@@ -169,7 +173,11 @@ func (s *Service) handle(method string, raw json.RawMessage) (out any, err error
 		if s.config.PiSessions != "" {
 			pi = s.config.PiSessions
 		}
-		r["paths"] = Object{"data": s.config.Data, "home": s.config.Home, "piSessions": pi}
+		var claude any
+		if s.config.ClaudeHome != "" {
+			claude = s.config.ClaudeHome
+		}
+		r["paths"] = Object{"data": s.config.Data, "home": s.config.Home, "piSessions": pi, "claudeHome": claude}
 		r["version"] = s.config.Version
 		value = r
 	case "widget":
@@ -221,7 +229,9 @@ func (s *Service) handle(method string, raw json.RawMessage) (out any, err error
 		if v, ok := p["piSessions"].(string); ok {
 			piSessions = v
 		}
-		_, err = s.store.Scan(s.ctx, s.config.Home, piHome, piSessions, true, func(v Object) { s.emit("progress", v) })
+		src := s.sources()
+		src.PiHome, src.PiSessions = piHome, piSessions
+		_, err = s.store.ScanSources(s.ctx, src, true, func(v Object) { s.emit("progress", v) })
 		value = true
 	case "_telemetry":
 		var events []Object
@@ -255,13 +265,17 @@ func (s *Service) handle(method string, raw json.RawMessage) (out any, err error
 	}
 	return value, nil
 }
+func (s *Service) sources() Sources {
+	c := s.config
+	return Sources{Home: c.Home, PiHome: c.PiHome, PiSessions: c.PiSessions, ClaudeHome: c.ClaudeHome, ClaudeConfig: c.ClaudeConfig}
+}
 func (s *Service) scan(full bool) {
 	defer func() {
 		if recover() != nil {
 			s.emit("error", "读取本机统计记录失败，将自动重试")
 		}
 	}()
-	status, e := s.store.Scan(s.ctx, s.config.Home, s.config.PiHome, s.config.PiSessions, full, func(p Object) { s.emit("progress", p) })
+	status, e := s.store.ScanSources(s.ctx, s.sources(), full, func(p Object) { s.emit("progress", p) })
 	if e != nil {
 		if s.ctx.Err() == nil {
 			s.emit("error", "读取本机统计记录失败，将自动重试")
@@ -269,6 +283,11 @@ func (s *Service) scan(full bool) {
 		return
 	}
 	if truth(status["changed"]) || truth(status["full"]) || num(status["errors"]) > 0 {
+		s.emit("updated", nil)
+	}
+	if q := obj(s.store.get("claudeQuotaStatus")); truth(q["attempted"]) && q["attempted"] != s.claudeQuota {
+		s.claudeQuota = q["attempted"]
+		s.emit("quota", Object{"agent": AgentClaude, "account": q["account"], "groups": s.store.claudeQuotaGroups(q["account"]), "muted": s.store.settings()["muted"]})
 		s.emit("updated", nil)
 	}
 	if num(status["errors"]) > 0 {

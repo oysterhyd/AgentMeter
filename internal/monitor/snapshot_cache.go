@@ -95,7 +95,7 @@ func (s *Store) activeTasks(f Object, now time.Time) int {
 	}
 	active := 0
 	for _, t := range s.mustQuery("SELECT t.*,s.project FROM turns t LEFT JOIN sessions s ON s.id=t.session WHERE t.status='running' AND t.last_seen>=? AND (? IS NULL OR t.account=? OR EXISTS (SELECT 1 FROM usage u WHERE u.turn=t.id AND u.session=t.session AND u.account=?)) ORDER BY t.started DESC,t.id DESC", iso(now.Add(-2*time.Minute)), account, account, account) {
-		if (!truth(f["model"]) || t["model"] == f["model"]) && (!truth(f["session"]) || t["session"] == f["session"]) && (!truth(f["project"]) || t["project"] == f["project"]) {
+		if (!truth(f["agent"]) || t["agent"] == f["agent"]) && (!truth(f["model"]) || t["model"] == f["model"]) && (!truth(f["session"]) || t["session"] == f["session"]) && (!truth(f["project"]) || t["project"] == f["project"]) {
 			active++
 		}
 	}

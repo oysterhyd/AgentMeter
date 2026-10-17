@@ -27,6 +27,25 @@ MyGO 页面直接调用 Go 服务获取按页面裁剪的独立 Go 快照；结�
 
 完整性检查失败的提示提供“备份并修复”。`monitor.RepairProfile` 独占数据目录，在私有副本中读取数据库和已提交 WAL，绕过索引逐行重建表，再重建索引并执行完整的 `integrity_check`。只有全部读取和验证成功才将原库及 WAL / SHM 移入 `database-backups` 并安装新库；替换失败时尝试回滚。设置、价格、账号、扫描偏移和清空历史边界一起保留，无法读取的行不会被静默丢弃。修复成功后自动重启；随安装包提供的 `--repair-database` 使用相同流程。
 
+## Claude Code 采集
+
+`scan.go` 按来源注册解析器（Codex、pi、Claude Code），每类记录自己的解析版本、行预筛和解析函数；扫描、偏移、事务回滚和诊断共用一套流程。已完整读取且大小 / 修改时间不变的文件在内存中跳过，不查询数据库。`claude.go` 用固定结构体解码 `projects/**/*.jsonl` 中的 assistant / user / `turn_duration` 行，消息正文以 `json.RawMessage` 跳过，不进入任何 map 或数据库。
+
+- 用量 ID 为 `claude:<message.id>`（缺失时依次退回 requestId 和行哈希）；同一响应的多行与恢复会话复制的旧响应合并为一行，各 Token 字段取最大值。输入 = `input_tokens + cache_read + cache_creation`，缓存读取记为 cached，缓存写入记为 cache_write，其中 1 小时部分另记 `cache_write_1h`；思考 Token 记为 reasoning（包含在输出中）。
+- 一次用户输入（排除工具结果、斜杠命令回显、meta 与中断提示）开启任务；`turn_duration` 结束任务并记录耗时，中断记为 aborted，`isApiErrorMessage` 记为 failed，之后的成功响应恢复为进行中。`<synthetic>` 本地提示不计用量。子代理文件按会话与时间归入父任务；同一次扫描中主记录先于子代理记录处理。
+- 账号来自 `.claude.json` 的 `oauthAccount`（摘要 ID + 邮箱 / 名称），观测来源为 `claude`，当前账号保存在 `currentClaudeAccount`；与 Codex 一样只归属观测区间内的记录。额度读取同一文件中 `cachedUsageUtilization` 的 5 小时 / 7 天 / 按模型周窗口，仅在账号一致时写入 `quotas`（bucket `claude*`，agent `claude`）。该文件只在大小或修改时间变化时重读，半写入时保留上次身份。从不打开 `.credentials.json`。
+- 设置 `claudeEnabled` 关闭后不读取 Claude Code 目录；离线模式不扫描任何来源。
+
+## 智能体维度
+
+结构版本 5 在 `usage`、`turns`、`sessions`、`quotas`、`request_events` 上增加 `agent`（`codex` / `claude`，历史行默认 `codex`），并建立 `usage(agent,ts)`、`turns(agent,started)`、`turns(session,started)` 索引；`prices` 增加可空的 `cache_write_1h`。筛选键 `agent` 进入快照、活动日历、逐次调用、导出和缓存键；`account=current` 按所选智能体解析。快照额外返回 `agents`（按智能体汇总）、`agentsPresent`、`currentClaudeAccount` 与 `claudeQuotaStatus`；未选择账号时额度取当前 Codex 与 Claude Code 账号。小窗口用量仍汇总全部本机账号，额度来自 `widgetQuotaAgent`（`auto` 取最近使用且有额度快照的智能体）。
+
+价格查找先按原模型名，再按规范名（去掉供应商前缀、`[1m]` / `@` 后缀与 8 位日期），结果在单次快照内缓存。
+
+## 产品名称与兼容标识
+
+界面、安装包显示名、快捷方式与卸载程序使用 `monitor.AppName`（AgentMeter）。为保证升级与签名更新可原地替换，以下内部标识保持 2.x 的值：可执行文件 `Codex Monitor Native.exe`、MyGO 应用名与 `mygo.json` 的 name / identifier、开机启动注册值、卸载注册表 ID、数据目录 `%APPDATA%\codex-monitor`。GitHub 仓库已更名为 `oysterhyd/AgentMeter`，3.0 构建的更新源指向新名称；2.x 仍请求旧地址，由 GitHub 的仓库重定向送达同一 Release，因此旧名称不可再被其他仓库占用。安装包按 `APP_LEGACY_NAME` 删除旧名称的快捷方式和卸载程序；安装验收使用独立的旧名称。
+
 ## 统计约束
 
 - Codex 采集桌面与 CLI 来源（包括交互终端、codex exec、MonoCode）；保留原始 originator，sessions.source 记录 desktop / cli / pi / unknown。MonoCode 以 monocode / monocode-text 标识调用 app-server，日志 source=vscode 仍按 CLI 后端归类。新格式按响应 ID 去重；旧累计记录取差分，CLI 的差分 ID 包含会话，累计回退时处理重置。复制历史中早于会话创建时间的用量只更新累计基线。
@@ -37,7 +56,7 @@ MyGO 页面直接调用 Go 服务获取按页面裁剪的独立 Go 快照；结�
 - 扫描文件按解析版本决定重读，首次升级补采旧 CLI 文件，即使文件大小、修改时间不变也重读。重读保留响应去重、账号归属与 clearedAt 边界，文件失败回滚统计与偏移并在后续扫描重试。
 - pi 仅处理可识别的官方 Codex 登录来源，缓存读取 / 写入属于输入，推理 Token 已包含在输出中。
 - 账号通过观测区间归属；未知身份保持未归属。价格按生效时间选择，手动版本优先。
-- 主窗口服从用户筛选；小窗口用量汇总全部本机账号，额度仅取当前 Codex 账号。
+- 主窗口服从用户筛选；小窗口用量汇总全部本机账号，额度取一个智能体的当前账号（自动或手动选择）。
 - 费用、缓存和额度缺失时保持未知。过期额度显示未知，旧快照通过提示标记。
 - 逐次列表区分用量记录、失败事件和重试事件；TTFT 缺失不补算，失败 / 重试没有独立用量时不计费用。首字分位数使用实际 TTFT 样本；任务费用占比仅以已定价用量为分母。
 - 清空历史设置边界，防止旧日志重放。趋势图使用单调三次插值；额度图以线性时间精简密集采样的绘制点，在重置和采样空档处断开。提示和键盘选择保留全部原始记录，详见 [曲线平滑](chart-smoothing.md)。

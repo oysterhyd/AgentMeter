@@ -2,9 +2,16 @@ package monitor
 
 import "fmt"
 
-const schemaVersion = 4
+const schemaVersion = 5
 const codexParserVersion = 5
 const piParserVersion = 2
+const claudeParserVersion = 1
+
+// Agents are the coding clients whose local records feed the statistics.
+const (
+	AgentCodex  = "codex"
+	AgentClaude = "claude"
+)
 
 func (s *Store) checkSchemaVersion() error {
 	row, err := s.one("PRAGMA user_version")
@@ -12,7 +19,7 @@ func (s *Store) checkSchemaVersion() error {
 		return err
 	}
 	if num(row["user_version"]) > schemaVersion {
-		return fmt.Errorf("数据库版本 %v 高于本程序支持的 %d，请升级 Codex Monitor", row["user_version"], schemaVersion)
+		return fmt.Errorf("数据库版本 %v 高于本程序支持的 %d，请升级 %s", row["user_version"], schemaVersion, AppName)
 	}
 	return nil
 }
@@ -64,6 +71,21 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	if version < 5 {
+		// Every existing row came from Codex (Pi uses official Codex logins).
+		// Agent is denormalized onto the hot tables so filters need no join.
+		for _, change := range [][3]string{{"sessions", "agent", agentColumn}, {"usage", "agent", agentColumn}, {"usage", "cache_write_1h", "INTEGER NOT NULL DEFAULT 0"},
+			{"turns", "agent", agentColumn}, {"quotas", "agent", agentColumn}, {"request_events", "agent", agentColumn}, {"prices", "cache_write_1h", "REAL"}} {
+			if err := s.addColumn(change[0], change[1], change[2]); err != nil {
+				return err
+			}
+		}
+		if err := s.exec(`CREATE INDEX IF NOT EXISTS usage_agent_time ON usage(agent,ts);
+            CREATE INDEX IF NOT EXISTS turns_agent_started ON turns(agent,started);
+            CREATE INDEX IF NOT EXISTS turns_session_started ON turns(session,started);`); err != nil {
+			return err
+		}
+	}
 	if version < schemaVersion {
 		return s.exec(fmt.Sprintf("PRAGMA user_version=%d", schemaVersion))
 	}
@@ -73,20 +95,8 @@ func (s *Store) migrate() error {
 func (s *Store) migrateLegacy() error {
 	var e error
 	for _, change := range [][3]string{{"account_observations", "source", "TEXT NOT NULL DEFAULT 'codex'"}, {"usage", "account", "TEXT NOT NULL DEFAULT 'unassigned'"}, {"turns", "account", "TEXT NOT NULL DEFAULT 'unassigned'"}, {"quotas", "account", "TEXT NOT NULL DEFAULT 'unassigned'"}, {"prices", "retired", "INTEGER NOT NULL DEFAULT 0"}} {
-		cols, e := s.query("PRAGMA table_info(" + change[0] + ")")
-		if e != nil {
+		if e = s.addColumn(change[0], change[1], change[2]); e != nil {
 			return e
-		}
-		found := false
-		for _, c := range cols {
-			if c["name"] == change[1] {
-				found = true
-			}
-		}
-		if !found {
-			if e = s.exec("ALTER TABLE " + change[0] + " ADD COLUMN " + change[1] + " " + change[2]); e != nil {
-				return e
-			}
 		}
 	}
 	for _, t := range []string{"usage", "turns", "quotas"} {
@@ -107,4 +117,20 @@ func (s *Store) migrateLegacy() error {
 		return e
 	}
 	return nil
+}
+
+const agentColumn = "TEXT NOT NULL DEFAULT 'codex'"
+
+// addColumn is idempotent: unversioned and rewound schemas may already have it.
+func (s *Store) addColumn(table, column, definition string) error {
+	cols, err := s.query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return err
+	}
+	for _, c := range cols {
+		if c["name"] == column {
+			return nil
+		}
+	}
+	return s.exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition)
 }

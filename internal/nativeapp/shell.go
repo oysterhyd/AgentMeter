@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"local.codex.monitor/internal/monitor"
+
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 )
@@ -158,8 +160,8 @@ func (a *App) sidebar(c *ui.Context) {
 				ui.Image(c, a.brand).Size(30, 30).Radius(8)
 			}
 			ui.Column(c).Gap(0).Children(func() {
-				ui.Text(c, "Codex Monitor").FontSize(14).FontWeight(650).Font(fontDisplay).NoWrap()
-				ui.Text(c, a.tr("本机用量监测")).FontSize(11).TextColor(p.secondary).NoWrap()
+				ui.Text(c, monitor.AppName).FontSize(14).FontWeight(650).Font(fontDisplay).NoWrap()
+				ui.Text(c, a.tr("AI 编程用量监测")).FontSize(11).TextColor(p.secondary).NoWrap()
 			})
 		})
 		search := ui.Button(c, "").Label(a.tr("打开命令面板")).Height(30).Padding(0, 10).Gap(8).Radius(8).Margin(10, 0, 6, 0).Background(p.fill).Border(0, ui.Transparent).Justify(ui.Start)
@@ -230,10 +232,8 @@ func (a *App) nav(c *ui.Context) {
 }
 
 func (a *App) primaryRemaining() (float64, bool) {
-	for _, q := range objects(a.data["quotas"]) {
-		if number(q["minutes"]) == 300 && q["used"] != nil {
-			return 100 - number(q["used"]), true
-		}
+	if q := a.primaryQuota(); q != nil {
+		return 100 - number(q["used"]), true
 	}
 	return 0, false
 }
@@ -250,17 +250,35 @@ func (a *App) sidebarStatus(c *ui.Context) {
 			}
 		})
 		scan := obj(a.data["scan"])
-		label, color := "等待数据源", p.orange
-		if truth(scan["sourceExists"]) {
-			label, color = "采集运行中", p.green
-		}
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Box(c).Size(8, 8).Radius(4).Background(color).Shadow(0, 0, 6, 0, color.Alpha(.6))
-			ui.Text(c, a.tr(label)).FontSize(12).TextColor(p.secondary).Grow(1).NoWrap()
-			if last := scan["lastScan"]; last != nil {
-				ui.Text(c, clock(last)).FontSize(11).TextColor(p.tertiary).FontFeatures("tnum")
+		// One line per agent: whether its local records are being collected.
+		for _, agent := range []string{agentCodex, agentClaude} {
+			found := truth(scan["codexSourceExists"]) || truth(scan["piSourceExists"])
+			if _, legacy := scan["codexSourceExists"]; !legacy {
+				found = truth(scan["sourceExists"])
 			}
-		})
+			label, color := "采集中", p.green
+			if agent == agentClaude {
+				found = truth(scan["claudeSourceExists"])
+				if !truth(obj(a.data["settings"])["claudeEnabled"]) {
+					label, color = "已关闭", p.gray
+				}
+			}
+			if !found && color != p.gray {
+				label, color = "等待数据源", p.orange
+			}
+			ui.Row(c.Key("status-" + agent)).Gap(8).AlignItems(ui.Center).Children(func() {
+				a.agentGlyph(c, agent, 13)
+				ui.Text(c, agentName(agent)).FontSize(12).TextColor(p.secondary).Grow(1).NoWrap()
+				dot := ui.Box(c).Size(7, 7).Radius(3.5).Background(color)
+				if color == p.green {
+					dot.Shadow(0, 0, 6, 0, color.Alpha(.6))
+				}
+				ui.Text(c, a.tr(label)).FontSize(11).TextColor(p.tertiary).NoWrap()
+			})
+		}
+		if last := scan["lastScan"]; last != nil {
+			ui.Text(c, a.tr("最近扫描")+" "+clock(last)).FontSize(10).TextColor(p.tertiary).FontFeatures("tnum")
+		}
 	})
 }
 
@@ -274,6 +292,9 @@ func (a *App) toolbar(c *ui.Context) {
 			ui.Text(c.Key("title"), a.tr(pageNames[a.page])).FontSize(22).FontWeight(700).Font(fontDisplay).NoWrap().ContentTransition(ui.ContentTransition{})
 			ui.Text(c.Key("subtitle"), a.subtitle()).FontSize(12).TextColor(p.secondary).NoWrap().Padding(6, 0, 0, 0).ContentTransition(ui.ContentTransition{})
 			ui.Spacer(c)
+			if a.page != 4 {
+				a.agentSwitch(c)
+			}
 			if a.loading || a.busy {
 				ui.Spinner(c).FontSize(14).TextColor(p.secondary)
 			}
@@ -291,6 +312,70 @@ func (a *App) toolbar(c *ui.Context) {
 
 func (a *App) toolbarHeight(c *ui.Context) float32 { return c.TitleBar().Height + 40 }
 
+// agentSwitch scopes every page to one agent or all of them: a segmented
+// control whose segments carry each agent's mark. Narrow windows keep the
+// marks and move the names into tooltips.
+func (a *App) agentSwitch(c *ui.Context) {
+	p := a.pal
+	selected := 0
+	for i, id := range agentIDs {
+		if str(a.filter["agent"]) == id {
+			selected = i
+		}
+	}
+	width, _ := c.Size()
+	compact := width < 1180
+	labels := []string{a.tr("全部"), "Codex", "Claude Code"}
+	segment := float32(104)
+	if compact {
+		segment = 42
+	}
+	track := ui.Row(c.Key("agent-switch")).Height(30).Width(segment*3 + 4).Padding(2).Gap(0).Radius(9).Background(p.fill).Shrink(0).Label(a.tr("智能体范围"))
+	position := track.AnimateTo("thumb", float32(selected), springSnappy)
+	track.Draw(func(pt *ui.Painter, r ui.Rect) {
+		thumb := ui.Rect{X: r.X + 2 + segment*position, Y: r.Y + 2, W: segment, H: r.H - 4}
+		color := ui.RGB(255, 255, 255)
+		if p.dark {
+			color = ui.Hex("#636366")
+		} else {
+			pt.Shadow(thumb, 7, 0, 1, 3, 0, ui.RGBA(0, 0, 0, .12))
+		}
+		pt.Fill(thumb, color, 7)
+		// A hairline in the selected agent's color, under its label.
+		accent := p.agent(agentIDs[min(2, max(0, int(position+.5)))])
+		line := ui.Rect{X: thumb.X + thumb.W*.3, Y: thumb.Y + thumb.H - 3, W: thumb.W * .4, H: 2}
+		pt.Fill(line, accent.Alpha(.55), 1)
+	})
+	track.Children(func() {
+		for i, id := range agentIDs {
+			b := ui.Button(c.Key(i), "").Label(labels[i]).Width(segment).Height(26).Padding(0, 6).Gap(6).Radius(7).Border(0, ui.Transparent).Background(ui.Transparent).Justify(ui.Center)
+			if compact {
+				b.Tooltip(labels[i])
+			}
+			b.Children(func() {
+				a.agentGlyph(c, id, 13)
+				if !compact {
+					weight := 450
+					if selected == i {
+						weight = 600
+					}
+					ui.Text(c, labels[i]).FontSize(12).FontWeight(weight).NoWrap()
+				}
+			})
+			if b.Clicked() && selected != i {
+				a.setAgent(id)
+			}
+		}
+	})
+}
+
+// setAgent scopes the app to an agent. A chosen account of another agent
+// stays chosen; "current account" follows the agent.
+func (a *App) setAgent(agent string) {
+	a.quotaIndex = 0
+	a.change("agent", agent)
+}
+
 func (a *App) subtitle() string {
 	switch {
 	case len(a.data) == 0:
@@ -301,7 +386,12 @@ func (a *App) subtitle() string {
 		return "v" + appVersion
 	}
 	end := dateValue(str(obj(a.data["range"])["end"]))
-	return shortStamp(obj(a.data["range"])["start"]) + " — " + shortStamp(end.UnixMilli()-1)
+	start := obj(a.data["range"])["start"]
+	// "All" starts at the epoch; show where the records actually begin.
+	if str(a.filter["range"]) == "all" {
+		start = obj(a.data["coverage"])["first"]
+	}
+	return shortStamp(start) + " — " + shortStamp(end.UnixMilli()-1)
 }
 
 var rangeIDs = []string{"today", "7d", "30d", "all", "custom"}
@@ -326,7 +416,11 @@ func (a *App) filters(c *ui.Context) {
 		}
 		ui.Spacer(c)
 		ids := []string{"", "current"}
-		labels := []string{a.tr("全部账号"), a.tr("当前账号") + " · " + a.accountLabel(str(a.data["currentAccount"]))}
+		current := str(a.data["currentAccount"])
+		if str(a.filter["agent"]) == agentClaude {
+			current = str(a.data["currentClaudeAccount"])
+		}
+		labels := []string{a.tr("全部账号"), a.tr("当前账号") + " · " + a.accountLabel(current)}
 		if a.page == 3 {
 			ids, labels = ids[1:], labels[1:]
 			if str(a.filter["account"]) == "" {
@@ -421,6 +515,7 @@ type command struct {
 	color              ui.Color
 	run                func()
 	model              bool
+	agent              string
 }
 
 func (a *App) commands() []command {
@@ -431,7 +526,17 @@ func (a *App) commands() []command {
 		label := a.tr(pageNames[item.page])
 		if query == "" || strings.Contains(strings.ToLower(label), query) {
 			page := item.page
-			list = append(list, command{a.tr("页面"), label, item.icon, item.color(p), func() { a.navigate(page) }, false})
+			list = append(list, command{group: a.tr("页面"), label: label, icon: item.icon, color: item.color(p), run: func() { a.navigate(page) }})
+		}
+	}
+	for _, id := range agentIDs {
+		label := a.tr("显示全部智能体")
+		if id != "" {
+			label = a.tr("仅显示 {0}", agentName(id))
+		}
+		if id != str(a.filter["agent"]) && (query == "" || strings.Contains(strings.ToLower(label), query) || id != "" && strings.Contains(strings.ToLower(agentName(id)), query)) {
+			agent := id
+			list = append(list, command{group: a.tr("智能体"), label: label, agent: agent, run: func() { a.setAgent(agent) }})
 		}
 	}
 	if query == "" {
@@ -445,7 +550,7 @@ func (a *App) commands() []command {
 				if key == "project" {
 					group = a.tr("项目")
 				}
-				list = append(list, command{group, name, entry.icon, p.purple, func() { a.change(key, value); a.navigate(2) }, key == "model"})
+				list = append(list, command{group: group, label: name, icon: entry.icon, color: p.purple, run: func() { a.change(key, value); a.navigate(2) }, model: key == "model"})
 			}
 		}
 	}
@@ -507,6 +612,8 @@ func (a *App) commandPalette(c *ui.Context) {
 				row.Children(func() {
 					if cmd.model {
 						a.modelMark(c, cmd.label, 24)
+					} else if cmd.group == a.tr("智能体") {
+						a.agentMark(c, cmd.agent, 24)
 					} else {
 						a.badge(c, cmd.icon, cmd.color, 24)
 					}

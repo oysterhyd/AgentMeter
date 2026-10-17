@@ -2,47 +2,116 @@ package monitor
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
 var interesting = regexp.MustCompile(`"type"\s*:\s*"(session_meta|turn_context|world_state|thread_settings_applied|token_usage_record|task_started|task_complete|turn_aborted|token_count)"`)
 var interestingPi = regexp.MustCompile(`^\s*\{\s*"type"\s*:\s*"(?:session|message|usage)"`)
 
+// Sources are the local client directories one scan reads. Empty paths
+// disable that client.
+type Sources struct {
+	Home, PiHome, PiSessions string
+	// ClaudeHome holds Claude Code's projects; ClaudeConfig is .claude.json.
+	ClaudeHome, ClaudeConfig string
+}
+
+// sourceKind selects the collector that owns a discovered file.
+type sourceKind uint8
+
+const (
+	kindCodex sourceKind = iota
+	kindPi
+	kindClaude
+)
+
+// errRecord marks one unreadable record. The file continues; the record is
+// reported, and missing evidence must never trigger a deletion.
+var errRecord = errors.New("record")
+
+// A collector parses one client's append-only JSONL. match is a cheap
+// prefilter on the raw line; process sees only lines that pass it.
+type collector struct {
+	version int
+	match   func(line []byte) bool
+	process func(s *Store, line []byte, state Object) error
+}
+
+var collectors = [...]collector{
+	kindCodex: {codexParserVersion, func(line []byte) bool { return interesting.Match(line[:min(180, len(line))]) }, (*Store).processCodexLine},
+	kindPi:    {piParserVersion, func(line []byte) bool { return interestingPi.Match(line[:min(180, len(line))]) }, (*Store).processPiLine},
+	kindClaude: {claudeParserVersion, func(line []byte) bool {
+		// Only prompts, responses and turn timings matter. Attachments, file
+		// snapshots and request blobs are most of the bytes; skip them unparsed.
+		return bytes.Contains(line, []byte(`"type":"assistant"`)) || bytes.Contains(line, []byte(`"type":"user"`)) || bytes.Contains(line, []byte(`"subtype":"turn_duration"`))
+	}, (*Store).processClaude},
+}
+
+func (s *Store) processCodexLine(line []byte, state Object) error {
+	var record Object
+	if json.Unmarshal(line, &record) != nil {
+		return errRecord
+	}
+	return s.process(record, state, line)
+}
+
+func (s *Store) processPiLine(line []byte, state Object) error {
+	var record Object
+	if json.Unmarshal(line, &record) != nil {
+		return errRecord
+	}
+	return s.processPi(record, state)
+}
+
+// Scan reads Codex and Pi only; ScanSources also reads Claude Code.
 func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full bool, progress func(Object)) (Object, error) {
+	return s.ScanSources(ctx, Sources{Home: home, PiHome: piHome, PiSessions: piSessions}, full, progress)
+}
+
+func (s *Store) ScanSources(ctx context.Context, src Sources, full bool, progress func(Object)) (Object, error) {
 	cleared := s.clearedAt()
 	s.scanBoundary = &cleared
 	defer func() { s.scanBoundary = nil }()
 	now := time.Now()
 	stamp := iso(now)
-	if e := s.observe(home, stamp, "codex"); e != nil {
+	if e := s.observe(src.Home, stamp, "codex"); e != nil {
 		return nil, e
 	}
-	s.piOAuth = piHome != "" && piOpenAIAuth(piHome)
-	if piHome != "" {
-		for _, src := range []string{"pi", "pi-openai"} {
-			if e := s.observe(piHome, stamp, src); e != nil {
+	s.piOAuth = src.PiHome != "" && piOpenAIAuth(src.PiHome)
+	if src.PiHome != "" {
+		for _, source := range []string{"pi", "pi-openai"} {
+			if e := s.observe(src.PiHome, stamp, source); e != nil {
 				return nil, e
 			}
 		}
 	}
+	claude := src.ClaudeHome != "" && truth(s.settings()["claudeEnabled"])
+	if claude {
+		if e := s.observeClaude(src.ClaudeConfig, stamp); e != nil {
+			return nil, e
+		}
+	}
 	s.replay = truth(s.get("replayRecovered"))
 	defer func() { s.replay = false }()
-	full = full || s.catalog == nil || s.catalogHome != home || s.catalogPi != piSessions || now.Sub(s.lastDiscovery) >= time.Minute
+	full = full || s.catalog == nil || s.catalogSources != src || now.Sub(s.lastDiscovery) >= time.Minute
 	if full {
 		s.catalog = map[string]time.Time{}
 		s.catalogOrder = []string{}
-		s.piFiles = map[string]bool{}
-		s.catalogHome, s.catalogPi = home, piSessions
+		s.kinds = map[string]sourceKind{}
+		s.catalogSources = src
 	}
-	var walk func(string, bool) error
-	walk = func(dir string, pi bool) error {
+	var walk func(string, sourceKind) error
+	walk = func(dir string, kind sourceKind) error {
 		entries, e := os.ReadDir(dir)
 		if os.IsNotExist(e) {
 			return nil
@@ -53,7 +122,7 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		for _, entry := range entries {
 			file := filepath.Join(dir, entry.Name())
 			if entry.IsDir() {
-				if e = walk(file, pi); e != nil {
+				if e = walk(file, kind); e != nil {
 					return e
 				}
 			} else if entry.Type().IsRegular() && filepath.Ext(file) == ".jsonl" {
@@ -61,18 +130,18 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 					s.catalog[file] = now
 					s.catalogOrder = append(s.catalogOrder, file)
 				}
-				if pi {
-					s.piFiles[file] = true
+				if kind != kindCodex {
+					s.kinds[file] = kind
 				}
 			}
 		}
 		return nil
 	}
 	if full {
-		if e := walk(filepath.Join(home, "sessions"), false); e != nil {
+		if e := walk(filepath.Join(src.Home, "sessions"), kindCodex); e != nil {
 			return nil, e
 		}
-		if e := walk(filepath.Join(home, "archived_sessions"), false); e != nil {
+		if e := walk(filepath.Join(src.Home, "archived_sessions"), kindCodex); e != nil {
 			return nil, e
 		}
 		s.lastDiscovery = now
@@ -81,24 +150,38 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			t := now.Add(-time.Duration(d) * 24 * time.Hour)
 			for _, loc := range []*time.Location{time.Local, time.UTC} {
 				t = t.In(loc)
-				if e := walk(filepath.Join(home, "sessions", fmt.Sprintf("%04d", t.Year()), fmt.Sprintf("%02d", t.Month()), fmt.Sprintf("%02d", t.Day())), false); e != nil {
+				if e := walk(filepath.Join(src.Home, "sessions", fmt.Sprintf("%04d", t.Year()), fmt.Sprintf("%02d", t.Month()), fmt.Sprintf("%02d", t.Day())), kindCodex); e != nil {
 					return nil, e
 				}
 			}
 		}
 	}
-	if piSessions != "" {
-		if e := walk(piSessions, true); e != nil {
+	if src.PiSessions != "" {
+		if e := walk(src.PiSessions, kindPi); e != nil {
 			return nil, e
 		}
 	}
-	files := []string{}
+	if claude {
+		if e := walk(filepath.Join(src.ClaudeHome, "projects"), kindClaude); e != nil {
+			return nil, e
+		}
+	}
+	// Subagent transcripts are attributed to their parent session's task, so
+	// they follow the main transcripts within each scan.
+	files, subagents := []string{}, []string{}
 	for _, file := range s.catalogOrder {
 		modified, ok := s.catalog[file]
-		if ok && (full || s.piFiles[file] || now.Sub(modified) < 2*time.Minute) {
+		kind := s.kinds[file]
+		if !ok || !(full || kind != kindCodex || now.Sub(modified) < 2*time.Minute) {
+			continue
+		}
+		if kind == kindClaude && strings.Contains(filepath.ToSlash(file), "/subagents/") {
+			subagents = append(subagents, file)
+		} else {
 			files = append(files, file)
 		}
 	}
+	files = append(files, subagents...)
 	changed := false
 	errors, scanned := 0, 0
 	diagnostics := []Object{}
@@ -121,15 +204,19 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			continue
 		}
 		s.catalog[file] = st.ModTime()
-		old := s.mustOne("SELECT * FROM files WHERE path=?", file)
-		pi := s.piFiles[file]
-		version := codexParserVersion
-		if pi {
-			version = piParserVersion
-		}
-		reparse := len(old) > 0 && num(old["parser_version"]) != float64(version)
+		kind := s.kinds[file]
+		c := collectors[kind]
 		mtime := float64(st.ModTime().UnixNano()) / 1e6
+		// Unchanged files skip the database lookup; every scan revisits Pi
+		// and Claude Code transcripts, so this keeps idle scans cheap.
+		if seen, ok := s.seen[file]; ok && seen.size == st.Size() && seen.mtime == mtime {
+			scanned++
+			continue
+		}
+		old := s.mustOne("SELECT * FROM files WHERE path=?", file)
+		reparse := len(old) > 0 && num(old["parser_version"]) != float64(c.version)
 		if !reparse && len(old) > 0 && num(old["offset"]) == float64(st.Size()) && abs(num(old["mtime"])-mtime) < .001 {
+			s.remember(file, st.Size(), mtime)
 			scanned++
 			continue
 		}
@@ -142,15 +229,16 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		if offset > 0 {
 			_ = json.Unmarshal([]byte(text(old["state"])), &state)
 		}
-		if !pi && state["source"] == "" && offset > 0 {
+		if kind == kindCodex && state["source"] == "" && offset > 0 {
 			if e = s.exec("UPDATE files SET offset=?,mtime=? WHERE path=?", st.Size(), mtime, file); e != nil {
 				return nil, e
 			}
+			s.remember(file, st.Size(), mtime)
 			scanned++
 			continue
 		}
 		e = s.transaction(func() error {
-			if reparse && !pi {
+			if reparse && kind == kindCodex {
 				s.legacyReplay = &legacyUsageReplay{existing: map[string]map[string]bool{}, retained: map[string]bool{}, suppressed: map[string]Object{}}
 				defer func() { s.legacyReplay = nil }()
 			}
@@ -179,25 +267,14 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 					return next
 				}
 				offset += int64(len(line))
-				head := line[:min(180, len(line))]
-				wanted := interesting.Match(head)
-				if pi {
-					wanted = interestingPi.Match(head)
-				}
-				if !wanted {
+				if !c.match(line) {
 					continue
 				}
-				var record Object
-				if json.Unmarshal(line, &record) != nil {
+				if e = c.process(s, line, state); e == errRecord {
 					report("record_parse", file)
 					// Missing source evidence must never trigger a deletion.
 					s.legacyReplay = nil
 					continue
-				}
-				if pi {
-					e = s.processPi(record, state)
-				} else {
-					e = s.process(record, state, line)
 				}
 				if e != nil {
 					return e // Roll back the file offset as well as its statistics.
@@ -208,7 +285,7 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 					return e
 				}
 			}
-			return s.exec("INSERT OR REPLACE INTO files(path,offset,state,mtime,parser_version) VALUES(?,?,?,?,?)", file, offset, jsonText(state), mtime, version)
+			return s.exec("INSERT OR REPLACE INTO files(path,offset,state,mtime,parser_version) VALUES(?,?,?,?,?)", file, offset, jsonText(state), mtime, c.version)
 		})
 		// Reuse ordinary long-line storage, but release exceptional payloads
 		// before scanning the remaining files.
@@ -219,62 +296,20 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
+			delete(s.seen, file)
 			report("file_read", file)
+		} else if offset == st.Size() {
+			s.remember(file, st.Size(), mtime)
 		}
 		scanned++
 		if scanned%10 == 0 && progress != nil {
 			progress(Object{"scanned": scanned, "total": len(files)})
 		}
 	}
-	sources := []string{"codex"}
-	if piHome != "" {
-		sources = append(sources, "pi", "pi-openai")
+	if e := s.attributeAccounts(src.PiHome != "", claude); e != nil {
+		return nil, e
 	}
-	for _, source := range sources {
-		o := s.mustOne("SELECT * FROM account_observations WHERE source=? ORDER BY id DESC LIMIT 1", source)
-		if len(o) == 0 || o["account"] == Unknown {
-			continue
-		}
-		for _, t := range []string{"usage", "turns", "quotas", "request_events"} {
-			piSource := source != "codex"
-			if piSource && (t == "quotas" || t == "request_events") {
-				continue
-			}
-			col := "ts"
-			if t == "turns" {
-				col = "started"
-			}
-			scope := ""
-			args := []any{o["account"], Unknown, o["started"], o["ended"]}
-			if t != "quotas" {
-				not := "NOT "
-				if piSource {
-					not = ""
-				}
-				scope = " AND " + not + "EXISTS (SELECT 1 FROM sessions s WHERE s.id=" + t + ".session AND s.origin=?)"
-				args = append(args, PiOrigin)
-				if t == "request_events" {
-					scope += " AND substr(session,1,3)!='pi:'"
-				}
-			}
-			if piSource {
-				kind := PiKind
-				if source == "pi-openai" {
-					kind = PiOpenAIKind
-				}
-				if t == "usage" {
-					scope += " AND kind=?"
-				} else {
-					scope += " AND EXISTS (SELECT 1 FROM usage u WHERE u.turn=turns.id AND u.session=turns.session AND u.kind=?)"
-				}
-				args = append(args, kind)
-			}
-			if e := s.exec("UPDATE "+t+" SET account=? WHERE account=? AND "+col+">=? AND "+col+"<=?"+scope, args...); e != nil {
-				return nil, e
-			}
-		}
-	}
-	diagnosticCount, diagnosticStatus := s.scanRequestDiagnostics(ctx, home)
+	diagnosticCount, diagnosticStatus := s.scanRequestDiagnostics(ctx, src.Home)
 	if e := s.set("requestDiagnostics", diagnosticStatus); e != nil {
 		return nil, e
 	}
@@ -287,7 +322,19 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		}
 	}
 	exists := func(p string) bool { _, e := os.Stat(p); return p != "" && e == nil }
-	status := Object{"scanned": scanned, "total": len(s.catalog), "checked": len(files), "full": full, "changed": changed, "diagnostics": diagnostics, "errors": errors, "lastScan": iso(time.Now()), "sourceExists": exists(filepath.Join(home, "sessions")) || exists(piSessions), "piSourceExists": exists(piSessions), "piFiles": len(s.piFiles), "piOpenaiOAuth": s.piOAuth}
+	piFiles, claudeFiles := 0, 0
+	for _, kind := range s.kinds {
+		switch kind {
+		case kindPi:
+			piFiles++
+		case kindClaude:
+			claudeFiles++
+		}
+	}
+	claudeExists := claude && exists(filepath.Join(src.ClaudeHome, "projects"))
+	status := Object{"scanned": scanned, "total": len(s.catalog), "checked": len(files), "full": full, "changed": changed, "diagnostics": diagnostics, "errors": errors, "lastScan": iso(time.Now()),
+		"sourceExists": exists(filepath.Join(src.Home, "sessions")) || exists(src.PiSessions) || claudeExists, "codexSourceExists": exists(filepath.Join(src.Home, "sessions")),
+		"piSourceExists": exists(src.PiSessions), "piFiles": piFiles, "piOpenaiOAuth": s.piOAuth, "claudeSourceExists": claudeExists, "claudeFiles": claudeFiles}
 	if e := s.set("scan", status); e != nil {
 		return nil, e
 	}
@@ -297,6 +344,77 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 		}
 	}
 	return status, nil
+}
+
+type fileStamp struct {
+	size  int64
+	mtime float64
+}
+
+// remember records a fully consumed file so an unchanged one is skipped.
+func (s *Store) remember(file string, size int64, mtime float64) {
+	if s.seen == nil {
+		s.seen = map[string]fileStamp{}
+	}
+	s.seen[file] = fileStamp{size, mtime}
+}
+
+// attributeAccounts assigns unattributed records inside each source's latest
+// observation window to the account then signed in. Each source owns only its
+// own client's rows: Codex excludes Pi and Claude Code, and so on.
+func (s *Store) attributeAccounts(pi, claude bool) error {
+	type rule struct {
+		source, agent string
+		pi            bool   // owns Pi sessions rather than excluding them
+		kind          string // Pi's provider kind, when the source is Pi
+	}
+	rules := []rule{{source: "codex", agent: AgentCodex}}
+	if pi {
+		rules = append(rules, rule{"pi", AgentCodex, true, PiKind}, rule{"pi-openai", AgentCodex, true, PiOpenAIKind})
+	}
+	if claude {
+		rules = append(rules, rule{source: "claude", agent: AgentClaude})
+	}
+	for _, r := range rules {
+		o := s.mustOne("SELECT * FROM account_observations WHERE source=? ORDER BY id DESC LIMIT 1", r.source)
+		if len(o) == 0 || o["account"] == Unknown {
+			continue
+		}
+		for _, table := range []string{"usage", "turns", "quotas", "request_events"} {
+			if r.pi && (table == "quotas" || table == "request_events") || r.agent == AgentClaude && table == "request_events" {
+				continue
+			}
+			col := "ts"
+			if table == "turns" {
+				col = "started"
+			}
+			scope := " AND agent=?"
+			args := []any{o["account"], Unknown, o["started"], o["ended"], r.agent}
+			if table != "quotas" && r.agent == AgentCodex {
+				not := "NOT "
+				if r.pi {
+					not = ""
+				}
+				scope += " AND " + not + "EXISTS (SELECT 1 FROM sessions s WHERE s.id=" + table + ".session AND s.origin=?)"
+				args = append(args, PiOrigin)
+				if table == "request_events" {
+					scope += " AND substr(session,1,3)!='pi:'"
+				}
+			}
+			if r.pi {
+				if table == "usage" {
+					scope += " AND kind=?"
+				} else {
+					scope += " AND EXISTS (SELECT 1 FROM usage u WHERE u.turn=turns.id AND u.session=turns.session AND u.kind=?)"
+				}
+				args = append(args, r.kind)
+			}
+			if e := s.exec("UPDATE "+table+" SET account=? WHERE account=? AND "+col+">=? AND "+col+"<=?"+scope, args...); e != nil {
+				return e
+			}
+		}
+	}
+	return nil
 }
 
 // Borrow normal lines from the reader. Only an oversized line needs scratch

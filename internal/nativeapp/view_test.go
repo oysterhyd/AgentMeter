@@ -137,7 +137,7 @@ func TestRedesignDPIThemesAndSettings(t *testing.T) {
 							if err := tt.Click(section); err != nil || a.settingsSection != i {
 								t.Fatal("settings navigation", err)
 							}
-							if !tt.HasText([]string{"软件更新", "账号管理", "新增价格版本", "数据来源"}[i]) {
+							if !tt.HasText([]string{"软件更新", "账号管理", "新增价格版本", "采集 Claude Code 用量"}[i]) {
 								t.Fatal(tt.Texts())
 							}
 						}
