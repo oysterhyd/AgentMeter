@@ -150,6 +150,10 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 			continue
 		}
 		e = s.transaction(func() error {
+			if reparse && !pi {
+				s.legacyReplay = &legacyUsageReplay{existing: map[string]map[string]bool{}, retained: map[string]bool{}, suppressed: map[string]Object{}}
+				defer func() { s.legacyReplay = nil }()
+			}
 			input, e := os.Open(file)
 			if e != nil {
 				return e
@@ -186,6 +190,8 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 				var record Object
 				if json.Unmarshal(line, &record) != nil {
 					report("record_parse", file)
+					// Missing source evidence must never trigger a deletion.
+					s.legacyReplay = nil
 					continue
 				}
 				if pi {
@@ -195,6 +201,11 @@ func (s *Store) Scan(ctx context.Context, home, piHome, piSessions string, full 
 				}
 				if e != nil {
 					return e // Roll back the file offset as well as its statistics.
+				}
+			}
+			if s.legacyReplay != nil {
+				if e = s.reconcileLegacyUsage(); e != nil {
+					return e
 				}
 			}
 			return s.exec("INSERT OR REPLACE INTO files(path,offset,state,mtime,parser_version) VALUES(?,?,?,?,?)", file, offset, jsonText(state), mtime, version)

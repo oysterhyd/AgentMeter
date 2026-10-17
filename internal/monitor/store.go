@@ -126,6 +126,7 @@ type Store struct {
 	tx                     *sql.Tx
 	intervals              []Object
 	replay                 bool
+	legacyReplay           *legacyUsageReplay
 	piOAuth                bool
 	catalog                map[string]time.Time
 	catalogOrder           []string

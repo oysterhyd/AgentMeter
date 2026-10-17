@@ -236,6 +236,11 @@ func (s *Store) process(o, state Object, raw []byte) error {
 			}
 			info := obj(p["info"])
 			if total := obj(info["total_token_usage"]); len(total) > 0 {
+				if truth(state["modern"]) && allowed && s.legacyReplay != nil && validNumber(total["input_tokens"]) && validNumber(total["output_tokens"]) {
+					if e := s.suppressLegacyUsage(state, ts, raw, total); e != nil {
+						return e
+					}
+				}
 				if !truth(state["modern"]) && allowed {
 					prev := obj(state["total"])
 					usage := Object{}
@@ -248,12 +253,12 @@ func (s *Store) process(o, state Object, raw []byte) error {
 						}
 					}
 					if num(usage["input_tokens"])+num(usage["output_tokens"]) > 0 {
-						key := ts + rawAt(raw, "payload", "info", "total_token_usage")
-						if state["source"] == "cli" || state["source"] == "vscode" {
-							key = text(state["session"]) + "|" + key
-						}
-						if e := s.addUsage("legacy:"+hash(key), usage, ts, state, "累计差分"); e != nil {
+						id := legacyUsageID(state, ts, raw)
+						if e := s.addUsage(id, usage, ts, state, "累计差分"); e != nil {
 							return e
+						}
+						if s.legacyReplay != nil {
+							s.legacyReplay.retained[id] = true
 						}
 					}
 				}
@@ -261,12 +266,12 @@ func (s *Store) process(o, state Object, raw []byte) error {
 			}
 		}
 	case "token_usage_record":
+		if truth(p["thread_id"]) && p["thread_id"] != state["session"] {
+			return nil
+		}
 		state["modern"] = true
 		if truth(p["thread_token_usage"]) {
 			state["total"] = p["thread_token_usage"]
-		}
-		if truth(p["thread_id"]) && p["thread_id"] != state["session"] {
-			return nil
 		}
 		if allowed && truth(p["usage"]) {
 			id := text(p["response_id"])
