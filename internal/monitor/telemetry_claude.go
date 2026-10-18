@@ -117,26 +117,12 @@ func replaceClaudeEnv(raw []byte, env Object, dropEmpty bool) ([]byte, error) {
 	} else if len(envMembers) > 0 {
 		members = append(members, jsonMember{"env", encodeMembers(envMembers)})
 	}
-	var out bytes.Buffer
-	if indent := jsonIndent.FindSubmatch(data); indent != nil {
-		err = json.Indent(&out, encodeMembers(members), "", string(indent[1]))
-	} else if bytes.ContainsRune(bytes.TrimSpace(data), '\n') {
-		err = json.Indent(&out, encodeMembers(members), "", "  ")
-	} else {
-		err = json.Compact(&out, encodeMembers(members))
-	}
+	result, err := formatClaudeSettings(raw, data, empty, members)
 	if err != nil {
 		return nil, invalid
 	}
-	result := out.Bytes()
-	if bytes.HasSuffix(data, []byte("\n")) {
-		result = append(result, '\n')
-	}
-	if bytes.Contains(data, []byte("\r\n")) {
-		result = bytes.ReplaceAll(result, []byte("\n"), []byte("\r\n"))
-	}
 	var before, after Object
-	if json.Unmarshal(data, &before) != nil || json.Unmarshal(result, &after) != nil {
+	if json.Unmarshal(data, &before) != nil || json.Unmarshal(bytes.TrimPrefix(result, []byte{0xef, 0xbb, 0xbf}), &after) != nil {
 		return nil, invalid
 	}
 	beforeEnv, afterEnv := obj(before["env"]), obj(after["env"])
@@ -148,6 +134,31 @@ func replaceClaudeEnv(raw []byte, env Object, dropEmpty bool) ([]byte, error) {
 	}
 	if !reflect.DeepEqual(before, after) || !reflect.DeepEqual(beforeEnv, afterEnv) {
 		return nil, fmt.Errorf("采集配置校验失败，已保留原文件")
+	}
+	return result, nil
+}
+
+// formatClaudeSettings encodes members with the original file's indentation,
+// line endings, BOM and final newline.
+func formatClaudeSettings(raw, data []byte, empty bool, members []jsonMember) ([]byte, error) {
+	var out bytes.Buffer
+	var err error
+	if indent := jsonIndent.FindSubmatch(data); indent != nil {
+		err = json.Indent(&out, encodeMembers(members), "", string(indent[1]))
+	} else if bytes.ContainsRune(bytes.TrimSpace(data), '\n') {
+		err = json.Indent(&out, encodeMembers(members), "", "  ")
+	} else {
+		err = json.Compact(&out, encodeMembers(members))
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := out.Bytes()
+	if bytes.HasSuffix(data, []byte("\n")) {
+		result = append(result, '\n')
+	}
+	if bytes.Contains(data, []byte("\r\n")) {
+		result = bytes.ReplaceAll(result, []byte("\n"), []byte("\r\n"))
 	}
 	if len(data) != len(raw) && !empty {
 		result = append([]byte{0xef, 0xbb, 0xbf}, result...)

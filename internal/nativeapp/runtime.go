@@ -113,6 +113,8 @@ func Run(resources fs.FS) error {
 	flag.BoolVar(&o.Stdio, "stdio", false, "run the Go data service over private stdio")
 	flag.BoolVar(&o.CheckUpdates, "check-updates", false, "check the signed update feed and exit without opening monitor data")
 	flag.BoolVar(&o.RepairDatabase, "repair-database", false, "back up and repair monitor database, then exit")
+	statusline := flag.Bool("claude-statusline", false, "record Claude Code statusLine rate limits, then run the wrapped command")
+	wrapped := flag.String("claude-statusline-command", "", "base64url statusLine command to run after recording")
 	flag.Parse()
 	o.Smoke = o.Smoke || o.SmokeMemory
 	if o.CheckUpdates {
@@ -133,6 +135,9 @@ func Run(resources fs.FS) error {
 		o.Data = filepath.Join(os.Getenv("APPDATA"), "codex-monitor")
 	}
 	o.Data, _ = filepath.Abs(o.Data)
+	if *statusline {
+		os.Exit(monitor.RunClaudeStatusline(o.Data, *wrapped, os.Stdin, os.Stdout, os.Stderr))
+	}
 	if o.RepairDatabase {
 		backup, err := monitor.RepairProfile(o.Data)
 		if err == nil {
@@ -183,7 +188,8 @@ func Run(resources fs.FS) error {
 	if err != nil {
 		return err
 	}
-	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, ClaudeHome: claudeHome, ClaudeConfig: claudeConfig, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
+	executable, _ := os.Executable()
+	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, ClaudeHome: claudeHome, ClaudeConfig: claudeConfig, Executable: executable, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
 	if err != nil {
 		if o.Snapshot == "" && !o.Stdio {
 			mygo.App.WhenReady(func() {

@@ -329,19 +329,40 @@ func (s *Store) readClaudeConfig(path string) *claudeConfigCache {
 }
 
 // observeClaude records the signed-in Claude account and samples the quota
-// utilization Claude Code last fetched. It reads; it never writes the file.
-func (s *Store) observeClaude(path, now string) error {
+// utilization Claude Code last fetched, plus the newer per-response windows
+// the statusLine bridge saved. It reads; it never writes Claude Code files.
+func (s *Store) observeClaude(path, statusline, now string) error {
 	c := s.readClaudeConfig(path)
 	if e := s.recordAccount(c.account, now, "claude"); e != nil {
 		return e
 	}
-	if c.account == nil || c.quota == nil {
+	if c.account == nil {
 		return nil
 	}
 	account := text(c.account["id"])
+	latest, err := s.observeClaudeCache(c, account)
+	if err != nil {
+		return err
+	}
+	ts, err := s.observeClaudeStatusline(statusline, account, c.plan)
+	if err != nil {
+		return err
+	}
+	latest = max(latest, ts)
+	if latest == "" {
+		return nil
+	}
+	return s.set("claudeQuotaStatus", Object{"ok": true, "account": account, "attempted": latest})
+}
+
+// observeClaudeCache records cachedUsageUtilization, returning its timestamp.
+func (s *Store) observeClaudeCache(c *claudeConfigCache, account string) (string, error) {
+	if c.quota == nil {
+		return "", nil
+	}
 	ts := iso(time.UnixMilli(int64(c.quota.FetchedAtMs)))
 	if cleared := s.clearedAt(); cleared != "" && ts <= cleared {
-		return nil
+		return "", nil
 	}
 	for _, w := range claudeWindows {
 		var v *claudeWindow
@@ -363,10 +384,10 @@ func (s *Store) observeClaude(path, now string) error {
 			plan = c.plan
 		}
 		if e := s.exec("INSERT OR IGNORE INTO quotas(id,ts,bucket,slot,used,minutes,resets,plan,source,account,agent) VALUES(?,?,?,?,?,?,?,?,?,?,?)", id, ts, w.bucket, w.slot, used, minutes, resets, plan, ClaudeQuotaSource, account, AgentClaude); e != nil {
-			return e
+			return "", e
 		}
 	}
-	return s.set("claudeQuotaStatus", Object{"ok": true, "account": account, "attempted": ts})
+	return ts, nil
 }
 
 // claudeQuotaGroups shapes the latest Claude samples like App Server's rate

@@ -17,7 +17,10 @@ type Config struct {
 	// ClaudeHome is Claude Code's config directory (with projects/);
 	// ClaudeConfig is its .claude.json. Empty disables Claude Code.
 	ClaudeHome, ClaudeConfig string
-	PiExtension              []byte
+	// Executable is the installed Monitor binary that Claude Code's statusLine
+	// bridge invokes; empty leaves statusLine alone.
+	Executable  string
+	PiExtension []byte
 	Offline                  bool
 }
 type Event struct {
@@ -267,7 +270,11 @@ func (s *Service) handle(method string, raw json.RawMessage) (out any, err error
 }
 func (s *Service) sources() Sources {
 	c := s.config
-	return Sources{Home: c.Home, PiHome: c.PiHome, PiSessions: c.PiSessions, ClaudeHome: c.ClaudeHome, ClaudeConfig: c.ClaudeConfig}
+	src := Sources{Home: c.Home, PiHome: c.PiHome, PiSessions: c.PiSessions, ClaudeHome: c.ClaudeHome, ClaudeConfig: c.ClaudeConfig}
+	if c.ClaudeHome != "" && c.Data != "" {
+		src.ClaudeStatusline = filepath.Join(c.Data, claudeStatuslineFile)
+	}
+	return src
 }
 func (s *Service) scan(full bool) {
 	defer func() {

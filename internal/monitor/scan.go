@@ -24,6 +24,8 @@ type Sources struct {
 	Home, PiHome, PiSessions string
 	// ClaudeHome holds Claude Code's projects; ClaudeConfig is .claude.json.
 	ClaudeHome, ClaudeConfig string
+	// ClaudeStatusline is the sample file the statusLine bridge writes.
+	ClaudeStatusline string
 }
 
 // sourceKind selects the collector that owns a discovered file.
@@ -97,7 +99,7 @@ func (s *Store) ScanSources(ctx context.Context, src Sources, full bool, progres
 	}
 	claude := src.ClaudeHome != "" && truth(s.settings()["claudeEnabled"])
 	if claude {
-		if e := s.observeClaude(src.ClaudeConfig, stamp); e != nil {
+		if e := s.observeClaude(src.ClaudeConfig, src.ClaudeStatusline, stamp); e != nil {
 			return nil, e
 		}
 	}

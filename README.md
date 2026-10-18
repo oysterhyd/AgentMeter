@@ -103,9 +103,9 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/AgentMeter/releases/download/v3.0.1/AgentMeter-Setup-3.0.1.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/AgentMeter/releases/tag/v3.0.1)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/AgentMeter/releases/download/v3.0.2/AgentMeter-Setup-3.0.2.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/AgentMeter/releases/tag/v3.0.2)
 
-运行 `AgentMeter-Setup-3.0.1.exe`，按向导选择安装目录。新安装默认位于 `%LOCALAPPDATA%\Programs\AgentMeter`；从 Codex Monitor 升级时沿用原安装目录、数据与设置，并把快捷方式与卸载程序换成新名称。无需管理员权限。为保证内置签名更新可以原地替换，可执行文件仍名为 `Codex Monitor Native.exe`。
+运行 `AgentMeter-Setup-3.0.2.exe`，按向导选择安装目录。新安装默认位于 `%LOCALAPPDATA%\Programs\AgentMeter`；从 Codex Monitor 升级时沿用原安装目录、数据与设置，并把快捷方式与卸载程序换成新名称。无需管理员权限。为保证内置签名更新可以原地替换，可执行文件仍名为 `Codex Monitor Native.exe`。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 或 Claude Code 的使用记录；额度需要相应客户端的登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 
@@ -169,7 +169,7 @@ Go 可通过 PATH 查找，也支持 `%LOCALAPPDATA%\Programs\go\bin\go.exe` 或
 
 - **用量来源**：只读扫描 `%CODEX_HOME%`（默认 `%USERPROFILE%\.codex`）的 `sessions/` 与 `archived_sessions/`，计入 Codex Desktop、VS Code Codex 插件和 Codex CLI（交互终端、`codex exec` 与 MonoCode）来源。新版按响应 ID 去重，旧累计记录采用差分；CLI 与 VS Code 差分记录按会话隔离。任务明细与 CSV 导出包含来源。升级后自动迁移数据库并重读已有日志，补采此前忽略的 CLI / VS Code 历史；保留已有统计、账号、价格和清空历史的时间边界。
 - **Claude Code 来源**：只读扫描 `%CLAUDE_CONFIG_DIR%`（默认 `%USERPROFILE%\.claude`）下 `projects/` 的会话记录，包括子代理的 `subagents/` 记录。同一响应按消息 ID 去重（流式写入的多行与恢复会话复制的旧响应只计一次，并取各字段最大值）；输入 = 未缓存输入 + 缓存读取 + 缓存写入，与 Codex 口径一致，思考 Token 计入输出并单独显示为推理输出。一次用户提问为一个任务，耗时取自 Claude Code 记录的 `turn_duration`；中断、API 错误分别记为已取消、失败。子代理用量归入父会话当时进行中的任务。开启本机首字采集后，逐次调用的首字时间来自 Claude Code 的 OTel `api_request` 事件，按请求 ID 关联。可在设置中关闭采集。
-- **Claude Code 额度**：读取 `.claude.json` 中 Claude Code 自己缓存的用量快照（5 小时、7 天及按模型的周额度），以及登录账号的标识与套餐；不读取 `.credentials.json` 或任何令牌，也不发起网络请求。Claude Code 只在自己查询用量时（如 `/usage`）刷新该快照，日常对话不会刷新；已过重置时间的窗口显示为未知，快照较旧时额度页提示运行 `/usage`。
+- **Claude Code 额度**：读取 `.claude.json` 中 Claude Code 自己缓存的用量快照（5 小时、7 天及按模型的周额度），以及登录账号的标识与套餐；不读取 `.credentials.json` 或任何令牌，也不发起网络请求。Claude Code 只在自己查询用量时（如 `/usage`）刷新该快照，因此开启 Claude Code 采集且装有 Git Bash 时，AgentMeter 接管 `settings.json` 的 `statusLine`：Claude Code 每次响应后把 5 小时 / 7 天用量交给状态栏命令，AgentMeter 只记录这两个窗口，再以同一输入运行你原有的状态栏命令（输出与退出码不变），额度随对话实时更新；修改前备份，关闭采集时恢复原状态栏。卸载前请先关闭 Claude Code 采集，否则可从 `settings.json.codex-monitor.bak` 恢复。已过重置时间的窗口显示为未知，快照较旧时额度页提示运行 `/usage`。
 - **pi 来源**：支持可识别的官方 Codex 登录来源。默认读取 `%USERPROFILE%\.pi\agent\sessions`，兼容 `openai-codex`，以及能通过当前本机官方 OAuth 配置识别的 `openai`。未知账号保持未归属；混用登录方式的历史日志需结合实际情况判断。
 - **Codex 额度**：通过本机 Codex app-server 的 `account/rateLimits/read` 查询，属于当前账号，可能包括其他设备的用量。曲线在重置和采样空档处断开。
 - **缓存命中率**：缓存输入 / 输入 Token；没有输入时保持未知。

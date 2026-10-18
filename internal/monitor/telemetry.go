@@ -56,6 +56,8 @@ func (s *Service) configureTelemetry(autoPort bool) error {
 	if s.config.Offline {
 		return s.store.set("telemetryStatus", status)
 	}
+	// The quota bridge follows the Claude Code collector, not the TTFT switch.
+	status["claudeStatusline"] = s.setupClaudeStatusline(truth(settings["claudeEnabled"]))
 	if !truth(settings["telemetryEnabled"]) {
 		s.setupTelemetryClients(status, false, port)
 		return s.store.set("telemetryStatus", status)

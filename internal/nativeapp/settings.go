@@ -237,13 +237,22 @@ func (a *App) dataSettings(c *ui.Context, settings Object) {
 		path("folder-open-fill", "Codex 数据目录", str(paths["home"]))
 		path("folder-open-fill", "pi 会话目录", str(paths["piSessions"]))
 	})
-	a.group(c, "Claude Code", a.tr("读取 Claude Code 的本机会话记录（含子代理），按响应 ID 去重并保留账号归属与清空历史边界；只读取 Token 数量、模型和耗时，不保存对话或工具内容。额度来自 Claude Code 自身缓存的用量快照，不读取登录凭据。"), func() {
+	a.group(c, "Claude Code", a.tr("读取 Claude Code 的本机会话记录（含子代理），按响应 ID 去重并保留账号归属与清空历史边界；只读取 Token 数量、模型和耗时，不保存对话或工具内容。额度在每次响应后经状态栏同步（原状态栏命令照常运行），否则使用 Claude Code 缓存的用量快照；不读取登录凭据。"), func() {
 		a.rowWith(c, func() { a.agentMark(c, agentClaude, 28) }, a.tr("采集 Claude Code 用量"), a.tr("CLI、IDE 插件与 SDK 会话"), func() {
 			value := truth(settings["claudeEnabled"])
 			if ui.Switch(c, &value).Label(a.tr("采集 Claude Code 用量")).Disabled(a.busy).Changed() {
 				a.setting("claudeEnabled", value)
 			}
 		})
+		bridge := obj(obj(a.data["telemetry"])["claudeStatusline"])
+		switch {
+		case str(bridge["error"]) != "":
+			a.row(c, "", ui.Color{}, a.tr("实时额度"), a.tr(str(bridge["error"])), func() { a.pill(c, a.tr("错误"), p.red) })
+		case str(bridge["state"]) == "ready":
+			a.row(c, "", ui.Color{}, a.tr("实时额度"), a.tr("经 Claude Code 状态栏同步"), func() { a.pill(c, a.tr("已自动配置"), p.green) })
+		case str(bridge["state"]) == "unavailable":
+			a.row(c, "", ui.Color{}, a.tr("实时额度"), a.tr("未找到 Git Bash 或安装版程序，仅使用 /usage 缓存快照"), func() { a.pill(c, a.tr("不可用"), p.gray) })
+		}
 		path("folder-open-fill", "Claude Code 目录", str(paths["claudeHome"]))
 	})
 	a.group(c, a.tr("监测数据"), "", func() {

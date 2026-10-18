@@ -135,6 +135,7 @@ type Store struct {
 	lastDiscovery  time.Time
 	catalogSources Sources
 	claudeConfig   claudeConfigCache
+	claudeStatusline claudeStatuslineCache
 	scanBoundary   *string
 	snapshotCache  snapshotCache
 }
