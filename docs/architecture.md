@@ -33,8 +33,9 @@ MyGO 页面直接调用 Go 服务获取按页面裁剪的独立 Go 快照；结�
 
 - 用量 ID 为 `claude:<message.id>`（缺失时依次退回 requestId 和行哈希）；同一响应的多行与恢复会话复制的旧响应合并为一行，各 Token 字段取最大值。输入 = `input_tokens + cache_read + cache_creation`，缓存读取记为 cached，缓存写入记为 cache_write，其中 1 小时部分另记 `cache_write_1h`；思考 Token 记为 reasoning（包含在输出中）。
 - 一次用户输入（排除工具结果、斜杠命令回显、meta 与中断提示）开启任务；`turn_duration` 结束任务并记录耗时，中断记为 aborted，`isApiErrorMessage` 记为 failed，之后的成功响应恢复为进行中。`<synthetic>` 本地提示不计用量。子代理文件按会话与时间归入父任务；同一次扫描中主记录先于子代理记录处理。
-- 账号来自 `.claude.json` 的 `oauthAccount`（摘要 ID + 邮箱 / 名称），观测来源为 `claude`，当前账号保存在 `currentClaudeAccount`；与 Codex 一样只归属观测区间内的记录。额度读取同一文件中 `cachedUsageUtilization` 的 5 小时 / 7 天 / 按模型周窗口，仅在账号一致时写入 `quotas`（bucket `claude*`，agent `claude`）。该文件只在大小或修改时间变化时重读，半写入时保留上次身份。从不打开 `.credentials.json`。
+- 账号来自 `.claude.json` 的 `oauthAccount`（摘要 ID + 邮箱 / 名称），观测来源为 `claude`，当前账号保存在 `currentClaudeAccount`；与 Codex 一样只归属观测区间内的记录。额度读取同一文件中 `cachedUsageUtilization` 的 5 小时 / 7 天 / 按模型周窗口，仅在账号一致时写入 `quotas`（bucket `claude*`，agent `claude`）。Claude Code 只在自己请求用量接口时（`/usage`、IDE 用量面板、启动等）更新该缓存，日常对话不刷新，OTel 也不含额度；界面把已过重置时间的窗口显示为未知，并在快照超过 30 分钟时显示其时长和 `/usage` 提示。该文件只在大小或修改时间变化时重读，半写入时保留上次身份。从不打开 `.credentials.json`。
 - 设置 `claudeEnabled` 关闭后不读取 Claude Code 目录；离线模式不扫描任何来源。
+- 结构版本 6 在 `usage` 增加可空的 `request_id`（Claude 会话记录的 `requestId`）及 `usage(session,request_id)` 部分索引。Claude Code OTel `api_request` / `api_error` 事件以 `claude:<session.id>` 为会话、`request_id` 为请求键写入 `request_events`（agent `claude`），按请求 ID 精确关联用量，association 为 `request_id`。
 
 ## 智能体维度
 
@@ -67,7 +68,7 @@ MyGO 页面直接调用 Go 服务获取按页面裁剪的独立 Go 快照；结�
 
 本机请求采集由同一 `monitor.Service` 管理。开关开启且非离线时监听 `127.0.0.1:<端口>/v1/logs`，只接受有限大小的 OTLP HTTP JSON（支持 gzip）；HTTP 工作线程将白名单事件放入现有串行队列。关闭、端口切换和退出释放监听器，端口失败会回滚设置。`Scan` 额外只读检查 Codex `logs_*.sqlite`，在 Monitor 内保存诊断游标并检测数据库重建，不写诊断源。
 
-主窗口通过 history 快照读取 `calls` 和 `callDetails`：调用列表每页 50 条，展开任务每页 25 条，记录状态与排序由服务处理。仅请求逐次视图时返回全局调用列表，任务明细按需读取；列表使用稳定记录键、虚拟滚动和键盘展开。内置 Pi 扩展嵌入可执行文件，开启采集时自动安装到 Pi 的 extensions 目录，并合并当前 Codex home 的 OTel 配置。`telemetry_setup.go` 以 TOML AST 范围保留其他配置字节，修改前备份；Monitor 仅记住管理的两个非敏感字段和扩展哈希。关闭时恢复仍属于程序的字段及移除未被修改的扩展；离线模式不写客户端文件，配置冲突分别显示。新安装默认开启，升级保留开关，启动端口冲突自动寻找空闲端口并同步客户端。采集步骤与限制见 [逐次用量与首字分析](request-analysis.md)。
+主窗口通过 history 快照读取 `calls` 和 `callDetails`：调用列表每页 50 条，展开任务每页 25 条，记录状态与排序由服务处理。仅请求逐次视图时返回全局调用列表，任务明细按需读取；列表使用稳定记录键、虚拟滚动和键盘展开。内置 Pi 扩展嵌入可执行文件，开启采集时自动安装到 Pi 的 extensions 目录，并合并当前 Codex home 的 OTel 配置。`telemetry_setup.go` 以 TOML AST 范围保留其他配置字节，修改前备份；Monitor 仅记住管理的两个非敏感字段和扩展哈希。`telemetry_claude.go` 按原顺序改写 Claude Code `settings.json` 的 `env`，只管理四个 OTel 日志导出键并记住其原值，保留缩进、换行、BOM 和其他设置，修改前后校验其他值不变。关闭时恢复仍属于程序的字段及移除未被修改的扩展；离线模式不写客户端文件，配置冲突分别显示。新安装默认开启，升级保留开关，启动端口冲突自动寻找空闲端口并同步客户端。采集步骤与限制见 [逐次用量与首字分析](request-analysis.md)。
 
 ## 小窗口与动画
 

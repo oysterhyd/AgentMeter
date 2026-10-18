@@ -73,7 +73,8 @@ try {
   assert.equal(registration.UninstallString, `"${uninstaller}"`);
   for (const directory of Object.values(shortcutPaths)) {
     const shortcutFile = path.join(directory, `${name}.lnk`);
-    const shortcut = JSON.parse(powershell(`$shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut(${quote(shortcutFile)}); [pscustomobject]@{ Target = $shortcut.TargetPath; WorkingDirectory = $shortcut.WorkingDirectory } | ConvertTo-Json -Compress`));
+    // WScript.Shell reads link paths in the ANSI code page; Shell.Application keeps Unicode.
+    const shortcut = JSON.parse(powershell(`$shortcut = (New-Object -ComObject Shell.Application).Namespace(${quote(directory)}).ParseName(${quote(`${name}.lnk`)}).GetLink; [pscustomobject]@{ Target = $shortcut.Path; WorkingDirectory = $shortcut.WorkingDirectory } | ConvertTo-Json -Compress`));
     assert.equal(shortcut.Target, path.join(destination, exe));
     assert.equal(shortcut.WorkingDirectory, destination);
   }

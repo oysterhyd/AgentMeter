@@ -188,7 +188,7 @@ func (s *Service) handle(method string, raw json.RawMessage) (out any, err error
 	case "settings":
 		previous := s.store.settings()
 		value, err = s.store.saveSettings(p)
-		if err == nil && (p["telemetryEnabled"] != nil || p["telemetryPort"] != nil) {
+		if err == nil && (p["telemetryEnabled"] != nil || p["telemetryPort"] != nil || p["claudeEnabled"] != nil) {
 			if err = s.configureTelemetry(false); err != nil {
 				_, _ = s.store.saveSettings(previous)
 				_ = s.configureTelemetry(false)

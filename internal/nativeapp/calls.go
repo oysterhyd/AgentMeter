@@ -46,7 +46,7 @@ func (a *App) calls(c *ui.Context) {
 					ui.Text(c, a.tr("首字时间为请求发出至首次输出的等待时间；缺失时显示未知。失败与重试是观测到的诊断事件，缺失 Token 的事件不参与费用计算。")).FontSize(12).LineHeight(1.4).TextColor(p.secondary)
 					ui.Text(c, a.tr("已采集首字 {0} 条，已关联用量 {1} 条", coverage["received"], coverage["associated"])).FontSize(11).TextColor(p.tertiary)
 					if !truth(telemetry["listening"]) {
-						ui.Text(c, a.tr("在设置中开启本机首字采集，并配置 Codex 或加载 Pi 扩展后，新调用会记录首字时间。")).FontSize(12).TextColor(p.orange)
+						ui.Text(c, a.tr("在设置中开启本机首字采集后，Codex、Pi 和 Claude Code 的新调用会记录首字时间。")).FontSize(12).TextColor(p.orange)
 					}
 				})
 				if a.button(c, a.tr("打开采集设置"), "").Clicked() {

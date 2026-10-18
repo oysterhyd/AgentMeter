@@ -2,7 +2,7 @@ package monitor
 
 import "fmt"
 
-const schemaVersion = 5
+const schemaVersion = 6
 const codexParserVersion = 5
 const piParserVersion = 2
 const claudeParserVersion = 1
@@ -83,6 +83,16 @@ func (s *Store) migrate() error {
 		if err := s.exec(`CREATE INDEX IF NOT EXISTS usage_agent_time ON usage(agent,ts);
             CREATE INDEX IF NOT EXISTS turns_agent_started ON turns(agent,started);
             CREATE INDEX IF NOT EXISTS turns_session_started ON turns(session,started);`); err != nil {
+			return err
+		}
+	}
+	if version < 6 {
+		// Claude Code's OTel request events name the API request, not the
+		// message ID that keys its usage rows.
+		if err := s.addColumn("usage", "request_id", "TEXT"); err != nil {
+			return err
+		}
+		if err := s.exec("CREATE INDEX IF NOT EXISTS usage_session_request ON usage(session,request_id) WHERE request_id IS NOT NULL"); err != nil {
 			return err
 		}
 	}

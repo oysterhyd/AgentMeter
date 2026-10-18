@@ -60,16 +60,18 @@ func (s *Store) recordRequestEvent(e Object) error {
 	if safeIdentifier(text(e["request_key"])) {
 		requestKey = e["request_key"]
 	}
-	accountSource := "codex"
-	if strings.HasPrefix(text(e["session"]), "pi:") {
+	accountSource, agent := "codex", AgentCodex
+	if strings.HasPrefix(text(e["session"]), "claude:") {
+		accountSource, agent = "claude", AgentClaude
+	} else if strings.HasPrefix(text(e["session"]), "pi:") {
 		accountSource = "pi"
 		if e["pi_provider"] == "openai" {
 			accountSource = "pi-openai"
 		}
 	}
-	return s.exec(`INSERT OR IGNORE INTO request_events(id,ts,session,turn,model,kind,response_id,input,cached,output,reasoning,ttft,attempt,http_status,error_code,source,request_key,account)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, e["id"], ts, e["session"], turn, model, kind, response,
-		telemetryNumber(e["input"]), telemetryNumber(e["cached"]), telemetryNumber(e["output"]), telemetryNumber(e["reasoning"]), telemetryNumber(e["ttft"]), telemetryNumber(e["attempt"]), telemetryNumber(e["http_status"]), code, e["source"], requestKey, s.accountAt(ts, accountSource))
+	return s.exec(`INSERT OR IGNORE INTO request_events(id,ts,session,turn,model,kind,response_id,input,cached,output,reasoning,ttft,attempt,http_status,error_code,source,request_key,account,agent)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, e["id"], ts, e["session"], turn, model, kind, response,
+		telemetryNumber(e["input"]), telemetryNumber(e["cached"]), telemetryNumber(e["output"]), telemetryNumber(e["reasoning"]), telemetryNumber(e["ttft"]), telemetryNumber(e["attempt"]), telemetryNumber(e["http_status"]), code, e["source"], requestKey, s.accountAt(ts, accountSource), agent)
 }
 
 // Current Codex OTel logs have a conversation ID and token signature but no
@@ -91,7 +93,13 @@ func (s *Store) reconcileRequestEvents() error {
 	for _, event := range s.mustQuery("SELECT * FROM request_events WHERE kind='completed' AND usage_id IS NULL ORDER BY ts DESC LIMIT 2000") {
 		var rows []Object
 		association := "response_id"
-		if truth(event["response_id"]) {
+		if strings.HasPrefix(text(event["session"]), "claude:") {
+			// Claude Code's transcript records the same API request ID.
+			association = "request_id"
+			if truth(event["request_key"]) {
+				rows = s.mustQuery("SELECT id,turn,account FROM usage WHERE session=? AND request_id=? LIMIT 2", event["session"], event["request_key"])
+			}
+		} else if truth(event["response_id"]) {
 			id := text(event["response_id"])
 			if strings.HasPrefix(text(event["session"]), "pi:") {
 				id = "pi:" + hash("response:"+id)
@@ -303,6 +311,9 @@ func requestErrorLabel(code string) string {
 func requestTimingNote(association string) string {
 	if association == "response_id" {
 		return "按响应 ID 关联"
+	}
+	if association == "request_id" {
+		return "按请求 ID 关联"
 	}
 	if association == "time_tokens" {
 		return "按时间与 Token 唯一匹配"

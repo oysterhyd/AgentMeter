@@ -136,7 +136,7 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 		}
 	}
 	a.group(c, a.tr("本机首字采集"), a.tr("历史日志没有首字时间时无法补算；客户端未导出的内部重试无法观测。"), func() {
-		a.toggle(c, settings, "telemetryEnabled", "broadcast-fill", p.teal, "记录逐次首字时间与失败重试", "保留 Desktop、CLI 和 Pi 用量采集；额外接收本机请求诊断，不保存对话、工具内容或登录凭据。Claude Code 记录不含首字时间，其任务耗时来自会话日志。")
+		a.toggle(c, settings, "telemetryEnabled", "broadcast-fill", p.teal, "记录逐次首字时间与失败重试", "保留 Desktop、CLI、Pi 和 Claude Code 用量采集；额外接收本机请求诊断，不保存对话、工具内容或登录凭据。")
 		if a.telemetryPortDraft == "" {
 			a.telemetryPortDraft = str(settings["telemetryPort"])
 		}
@@ -159,17 +159,14 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 			detail, color = a.tr(str(status["error"])), p.red
 		}
 		a.row(c, "", ui.Color{}, a.tr("状态"), detail, func() { a.pill(c, a.tr(label), color) })
-		a.row(c, "", ui.Color{}, a.tr("自动配置"), a.tr("自动配置 Codex Desktop / CLI / VS Code 和 Pi，无需编辑文件或复制加载命令。"), func() {
+		a.row(c, "", ui.Color{}, a.tr("自动配置"), a.tr("自动配置 Codex Desktop / CLI / VS Code、Pi 和 Claude Code，无需编辑文件或复制加载命令。"), func() {
 			if a.button(c, a.tr("重新检查自动配置"), "").Disabled(a.busy).Clicked() {
 				a.perform(func() (any, error) { return a.call("telemetrySetup", Object{}) }, "自动配置已检查")
 			}
 		})
-		for _, client := range []string{"codex", "pi"} {
+		for _, client := range []string{"codex", "pi", "claude"} {
 			binding := obj(status[client])
-			name := "Codex Desktop / CLI / VS Code"
-			if client == "pi" {
-				name = "Pi"
-			}
+			name := map[string]string{"codex": "Codex Desktop / CLI / VS Code", "pi": "Pi", "claude": "Claude Code"}[client]
 			switch {
 			case str(binding["error"]) != "":
 				a.row(c, "", ui.Color{}, name, a.tr(str(binding["error"])), func() { a.pill(c, a.tr("错误"), p.red) })
@@ -179,6 +176,9 @@ func (a *App) telemetrySettings(c *ui.Context, settings Object) {
 		}
 		if truth(obj(status["codex"])["restartRequired"]) || truth(obj(status["pi"])["restartRequired"]) {
 			a.row(c, "", ui.Color{}, a.tr("需要重启"), a.tr("配置已更新：正在运行的 Codex Desktop / CLI 需重启一次，VS Code 需重新加载窗口；Pi 可执行 /reload。之后的新调用自动采集。"), nil)
+		}
+		if truth(obj(status["claude"])["restartRequired"]) {
+			a.row(c, "", ui.Color{}, a.tr("需要重启"), a.tr("配置已更新：新开的 Claude Code 会话自动采集首字时间，正在运行的会话需重新启动。"), nil)
 		}
 	})
 }

@@ -1,6 +1,6 @@
 {
   "name": "agentmeter",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Native Go Windows usage monitor for Codex and Claude Code",
   "private": true,
   "author": "AgentMeter",

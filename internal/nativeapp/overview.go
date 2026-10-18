@@ -60,6 +60,8 @@ func (a *App) kpis(c *ui.Context) {
 		fraction = bounded(1-number(quota["used"])/100, 0, 1)
 		remaining = fmt.Sprintf("%.0f%%", fraction*100)
 		quotaFoot = agentName(quotaAgent(quota)) + " · " + a.quotaWindow(quota)
+	} else if len(objects(a.data["quotas"])) > 0 {
+		quotaFoot = a.tr("已过重置时间，等待新快照")
 	}
 	tokenLabel := "Token 消耗"
 	if str(a.filter["range"]) == "today" {
@@ -288,7 +290,7 @@ func (a *App) quotaRings(c *ui.Context) ui.Element {
 							ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 								ui.Box(c).Size(7, 7).Radius(3.5).Background(values[i].color)
 								ui.Text(c, a.quotaTitle(q)).FontSize(12).TextColor(p.secondary).Grow(1).Basis(0).SingleLine()
-								ui.Text(c, fmt.Sprintf("%.0f%%", values[i].fraction*100)).FontSize(15).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
+								ui.Text(c, quotaPercent(q, values[i].fraction)+"%").FontSize(15).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
 								ui.Text(c, a.tr("剩余")).FontSize(11).TextColor(p.tertiary)
 							})
 						}
@@ -302,7 +304,11 @@ func (a *App) quotaRings(c *ui.Context) ui.Element {
 func (a *App) quotaValues(quotas []Object) []ringValue {
 	values := make([]ringValue, 0, len(quotas))
 	for i, q := range quotas {
-		values = append(values, ringValue{bounded(1-number(q["used"])/100, 0, 1), a.quotaColor(i)})
+		fraction := bounded(1-number(q["used"])/100, 0, 1)
+		if quotaExpired(q) {
+			fraction = 0
+		}
+		values = append(values, ringValue{fraction, a.quotaColor(i)})
 	}
 	return values
 }
@@ -316,7 +322,7 @@ func (a *App) quotaLegend(c *ui.Context, q Object, value ringValue) {
 			ui.Text(c, a.quotaWindow(q)).FontSize(12).TextColor(p.secondary).SingleLine()
 		})
 		ui.Row(c).Gap(3).AlignItems(ui.End).Children(func() {
-			ui.Text(c, fmt.Sprintf("%.0f", value.fraction*100)).FontSize(size).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
+			ui.Text(c, quotaPercent(q, value.fraction)).FontSize(size).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
 			ui.Text(c, a.tr("% 剩余")).FontSize(11).TextColor(p.secondary).Padding(0, 0, 3, 0)
 		})
 		ui.Text(c, a.resetText(q)).FontSize(11).TextColor(p.tertiary).SingleLine()
@@ -338,7 +344,7 @@ func (a *App) quotaStatusLine() string {
 		parts = append(parts, status)
 	}
 	if q := obj(a.data["claudeQuotaStatus"]); len(q) > 0 && agent != agentCodex {
-		parts = append(parts, "Claude Code "+a.tr("采样于")+" "+shortStamp(q["attempted"]))
+		parts = append(parts, "Claude Code "+a.tr("采样于")+" "+shortStamp(q["attempted"])+a.claudeQuotaAge(q["attempted"]))
 	}
 	return strings.Join(parts, "  ·  ")
 }
@@ -347,15 +353,28 @@ func (a *App) quotaColor(i int) ui.Color {
 	return [...]ui.Color{a.pal.green, a.pal.blue, a.pal.purple, a.pal.orange}[i%4]
 }
 
+// quotaExpired reports a window whose reset passed after its snapshot: its
+// usage restarted, so the sampled percentage no longer describes it.
+func quotaExpired(q Object) bool {
+	return q["resets"] != nil && number(q["resets"])*1000 < float64(time.Now().UnixMilli())
+}
+
+// quotaPercent is a window's remaining share, unknown once it has reset.
+func quotaPercent(q Object, fraction float64) string {
+	if quotaExpired(q) {
+		return "—"
+	}
+	return fmt.Sprintf("%.0f", fraction*100)
+}
+
 func (a *App) resetText(q Object) string {
 	if q["resets"] == nil {
 		return a.tr("重置 ") + "—"
 	}
-	reset := number(q["resets"]) * 1000
-	if reset < float64(time.Now().UnixMilli()) {
+	if quotaExpired(q) {
 		return a.tr("已过重置时间，等待新快照")
 	}
-	return a.tr("重置 ") + shortStamp(reset)
+	return a.tr("重置 ") + shortStamp(number(q["resets"])*1000)
 }
 
 func (a *App) rowCost(row Object) string {

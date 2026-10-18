@@ -92,7 +92,7 @@ func (s *Service) configureTelemetry(autoPort bool) error {
 			status[field] = previous[field]
 		}
 	}
-	for _, client := range []string{"codex", "pi"} {
+	for _, client := range []string{"codex", "pi", "claude"} {
 		state := obj(status[client])
 		if truth(obj(previous[client])["restartRequired"]) || truth(state["changed"]) {
 			state["restartRequired"] = true
@@ -172,7 +172,8 @@ func decodeTelemetry(data []byte) ([]Object, error) {
 				attrs := Object{}
 				for _, attr := range record.Attributes {
 					switch attr.Key {
-					case "event.name", "event.kind", "event.timestamp", "conversation.id", "turn.id", "model", "response.id", "response_id", "attempt", "http.response.status_code", "success", "ttft_ms", "input_token_count", "cached_token_count", "output_token_count", "reasoning_token_count", "error.message", "codex.monitor.request_id", "codex.monitor.provider":
+					case "event.name", "event.kind", "event.timestamp", "conversation.id", "turn.id", "model", "response.id", "response_id", "attempt", "http.response.status_code", "success", "ttft_ms", "input_token_count", "cached_token_count", "output_token_count", "reasoning_token_count", "error.message", "codex.monitor.request_id", "codex.monitor.provider",
+						"session.id", "request_id", "status_code", "error", "input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens":
 						v := attr.Value
 						var value any = v.String
 						if v.Int != "" {
@@ -193,10 +194,19 @@ func decodeTelemetry(data []byte) ([]Object, error) {
 						stamp = time.Unix(0, nanos)
 					}
 				}
-				if stamp.IsZero() || !safeIdentifier(text(attrs["conversation.id"])) {
+				session := text(attrs["conversation.id"])
+				switch attrs["event.name"] {
+				case "api_request", "api_error", "claude_code.api_request", "claude_code.api_error":
+					// Claude Code names its session and API request instead.
+					session = ""
+					if safeIdentifier(text(attrs["session.id"])) {
+						session = "claude:" + text(attrs["session.id"])
+					}
+				}
+				if stamp.IsZero() || !safeIdentifier(session) {
 					continue
 				}
-				row := Object{"ts": iso(stamp), "session": attrs["conversation.id"], "turn": nil, "model": "unknown", "source": "otel"}
+				row := Object{"ts": iso(stamp), "session": session, "turn": nil, "model": "unknown", "source": "otel"}
 				if strings.HasPrefix(text(row["session"]), "pi:") && attrs["codex.monitor.provider"] != "openai" && attrs["codex.monitor.provider"] != "openai-codex" {
 					continue
 				}
@@ -252,8 +262,29 @@ func decodeTelemetry(data []byte) ([]Object, error) {
 					} else {
 						continue
 					}
+				case "api_request", "claude_code.api_request":
+					// Only streamed responses report TTFT; the rest are side requests
+					// such as titles that have no transcript usage to time.
+					if row["ttft"] == nil {
+						continue
+					}
+					row["kind"] = "completed"
+					input, output, read, write := telemetryNumber(attrs["input_tokens"]), telemetryNumber(attrs["output_tokens"]), telemetryNumber(attrs["cache_read_tokens"]), telemetryNumber(attrs["cache_creation_tokens"])
+					if input != nil && output != nil && read != nil && write != nil {
+						// Transcript usage counts cache reads and writes as input.
+						row["input"], row["cached"], row["output"] = num(input)+num(read)+num(write), read, output
+					}
+				case "api_error", "claude_code.api_error":
+					status = telemetryNumber(attrs["status_code"])
+					if status != nil && num(status) >= 100 && num(status) <= 599 {
+						row["http_status"] = status
+					}
+					row["kind"], row["error_code"] = "failed", classifyRequestError(text(attrs["error"]), status)
 				default:
 					continue
+				}
+				if strings.HasPrefix(session, "claude:") && safeIdentifier(text(attrs["request_id"])) {
+					row["request_key"] = attrs["request_id"]
 				}
 				// Millisecond event timestamps can collide; retain the OTLP nanoseconds in the fingerprint.
 				row["id"] = "otel:" + hash(record.Time+"|"+text(attrs["event.name"])+"|"+jsonText(row))

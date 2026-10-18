@@ -149,7 +149,7 @@ func TestAutomaticSetupKeepsConflictingOrModifiedFiles(t *testing.T) {
 }
 
 func TestFreshServiceAutomaticallyConfiguresAndReceivesTTFT(t *testing.T) {
-	data, home, pi := t.TempDir(), t.TempDir(), t.TempDir()
+	data, home, pi, claude := t.TempDir(), t.TempDir(), t.TempDir(), t.TempDir()
 	occupied, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestFreshServiceAutomaticallyConfiguresAndReceivesTTFT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := Start(Config{Data: data, Home: home, PiHome: pi, PiExtension: []byte("test extension")})
+	service, err := Start(Config{Data: data, Home: home, PiHome: pi, PiExtension: []byte("test extension"), ClaudeHome: claude})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,10 +182,14 @@ func TestFreshServiceAutomaticallyConfiguresAndReceivesTTFT(t *testing.T) {
 	var snapshot Object
 	_ = json.Unmarshal(raw, &snapshot)
 	status := obj(snapshot["telemetry"])
-	if !truth(status["listening"]) || obj(status["codex"])["state"] != "ready" || obj(status["pi"])["state"] != "ready" || int(num(status["port"])) == port {
+	if !truth(status["listening"]) || obj(status["codex"])["state"] != "ready" || obj(status["pi"])["state"] != "ready" || obj(status["claude"])["state"] != "ready" || int(num(status["port"])) == port {
 		t.Fatal("automatic startup or port fallback failed", status)
 	}
 	endpoint := text(obj(obj(obj(readConfig(t, filepath.Join(home, "config.toml"))["otel"])["exporter"])["otlp-http"])["endpoint"])
+	settings, _ := os.ReadFile(filepath.Join(claude, "settings.json"))
+	if !bytes.Contains(settings, []byte(`"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "`+endpoint+`"`)) {
+		t.Fatal("Claude Code export not pointed at the collector", string(settings))
+	}
 	body := telemetryPayload(time.Now(), Object{"event.name": "codex.sse_event", "event.kind": "response.completed", "conversation.id": "test-session", "model": "test-model", "ttft_ms": "1250"})
 	response, err := http.Post(endpoint, "application/json", bytes.NewReader(body))
 	if err != nil {
@@ -200,11 +204,18 @@ func TestFreshServiceAutomaticallyConfiguresAndReceivesTTFT(t *testing.T) {
 	if err != nil || num(obj(snapshot["telemetry"])["ttftSamples"]) != 1 {
 		t.Fatal("first-token collection did not connect", err)
 	}
+	// Turning off Claude Code monitoring also hands its export back.
+	if _, err = service.Call(ctx, "settings", Object{"claudeEnabled": false}); err != nil {
+		t.Fatal(err)
+	}
+	if settings, _ = os.ReadFile(filepath.Join(claude, "settings.json")); bytes.Contains(settings, []byte("OTEL")) {
+		t.Fatal("Claude Code export left enabled", string(settings))
+	}
 }
 
 func TestOfflineStartupDoesNotModifyClientFiles(t *testing.T) {
-	home, pi := t.TempDir(), t.TempDir()
-	service, err := Start(Config{Data: t.TempDir(), Home: home, PiHome: pi, PiExtension: []byte("test"), Offline: true})
+	home, pi, claude := t.TempDir(), t.TempDir(), t.TempDir()
+	service, err := Start(Config{Data: t.TempDir(), Home: home, PiHome: pi, PiExtension: []byte("test"), ClaudeHome: claude, Offline: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +224,7 @@ func TestOfflineStartupDoesNotModifyClientFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{filepath.Join(home, "config.toml"), filepath.Join(pi, "extensions", "codex-monitor.ts")} {
+	for _, path := range []string{filepath.Join(home, "config.toml"), filepath.Join(pi, "extensions", "codex-monitor.ts"), filepath.Join(claude, "settings.json")} {
 		if _, err = os.Stat(path); !os.IsNotExist(err) {
 			t.Fatal("offline mode modified source", path)
 		}

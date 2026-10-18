@@ -228,6 +228,22 @@ func TestQuotaSegmentsBreakAtResetAndGap(t *testing.T) {
 	}
 }
 
+func TestExpiredQuotaIsUnknownNotStale(t *testing.T) {
+	a := fixtureApp(t)
+	now := time.Now()
+	live := Object{"used": 71., "minutes": 300., "resets": float64(now.Add(time.Hour).Unix())}
+	expired := Object{"used": 71., "minutes": 300., "resets": float64(now.Add(-time.Hour).Unix())}
+	if quotaPercent(live, .29) != "29" || quotaPercent(expired, .29) != "—" {
+		t.Fatal("expired window shows its pre-reset share")
+	}
+	if values := a.quotaValues([]Object{live, expired}); values[0].fraction < .28 || values[1].fraction != 0 {
+		t.Fatal(values)
+	}
+	if a.claudeQuotaAge(now.Add(-10*time.Minute).Format(time.RFC3339)) != "" || a.claudeQuotaAge(now.Add(-8*time.Hour).Format(time.RFC3339)) != " · 8 小时前，运行 /usage 刷新" {
+		t.Fatal("snapshot age")
+	}
+}
+
 // BenchmarkViewFrame measures one settled frame — build, layout and paint —
 // of each page at 1280×860 once entrance animations have finished.
 func BenchmarkViewFrame(b *testing.B) {

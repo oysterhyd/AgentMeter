@@ -15,7 +15,9 @@ function signedUpdate(bundle, release) {
   const publicKey = crypto.createPublicKey(key).export({ type: 'spki', format: 'der' }).subarray(-32);
   if (!publicKey.equals(Buffer.from(config.updates.publicKey, 'base64'))) throw new Error('The update signing key does not match mygo.json.');
   const archive = path.join(release, `AgentMeter-${config.version}-windows-amd64.tar.gz`);
-  const result = spawnSync('tar.exe', ['--options', 'gzip:compression-level=9', '-czf', archive, '-C', bundle, 'Codex Monitor Native.exe', 'icon.ico'], { windowsHide: true, encoding: 'utf8' });
+  // bsdtar reads arguments in the ANSI code page; relative paths keep a
+  // non-ASCII checkout directory out of them.
+  const result = spawnSync('tar.exe', ['--options', 'gzip:compression-level=9', '-czf', path.basename(archive), '-C', path.relative(release, bundle), 'Codex Monitor Native.exe', 'icon.ico'], { cwd: release, windowsHide: true, encoding: 'utf8' });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Update archive failed: ${result.stderr}`);
   const bytes = fs.readFileSync(archive);

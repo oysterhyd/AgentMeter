@@ -294,4 +294,5 @@ func (s *Service) setupPi(enabled bool, port int) Object {
 func (s *Service) setupTelemetryClients(status Object, enabled bool, port int) {
 	status["codex"] = s.setupCodex(enabled, port)
 	status["pi"] = s.setupPi(enabled, port)
+	status["claude"] = s.setupClaude(enabled && truth(s.store.settings()["claudeEnabled"]), port)
 }

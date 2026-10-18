@@ -81,7 +81,7 @@ func (a *App) quota(c *ui.Context) {
 			a.separator(c, 0)
 			ui.Row(c).Gap(8).Children(func() {
 				a.glyph(c, "info-fill", 14, p.tertiary)
-				ui.Text(c, a.tr("额度属于各自当前登录的账号，可能包含其他设备的用量。Codex 额度来自 App Server 在线查询；Claude Code 额度读取其自身缓存的用量快照，随 Claude Code 使用而更新，不读取登录凭据。")).FontSize(11).LineHeight(1.4).TextColor(p.secondary).Grow(1).Basis(0)
+				ui.Text(c, a.tr("额度属于各自当前登录的账号，可能包含其他设备的用量。Codex 额度来自 App Server 在线查询；Claude Code 额度读取其自身缓存的用量快照，不读取登录凭据。Claude Code 只在自己查询用量时更新快照，日常对话不会刷新；在 Claude Code 中运行 /usage 可获取最新额度。")).FontSize(11).LineHeight(1.4).TextColor(p.secondary).Grow(1).Basis(0)
 			})
 		})
 	})
@@ -105,7 +105,11 @@ func (a *App) quotaGroupHeader(c *ui.Context, agent string, sample Object) {
 			status = obj(a.data["claudeQuotaStatus"])
 		}
 		if at := status["attempted"]; at != nil {
-			ui.Text(c, a.tr("采样于")+" "+shortStamp(at)).FontSize(11).TextColor(p.tertiary).FontFeatures("tnum").NoWrap()
+			label := a.tr("采样于") + " " + shortStamp(at)
+			if agent == agentClaude {
+				label += a.claudeQuotaAge(at)
+			}
+			ui.Text(c, label).FontSize(11).TextColor(p.tertiary).FontFeatures("tnum").NoWrap()
 		}
 	})
 }
@@ -116,11 +120,15 @@ func (a *App) quotaCard(c *ui.Context, q Object, index, slot int) {
 	color := a.quotaColor(slot)
 	card := a.section(c.Key(index), func() {
 		ui.Row(c).Gap(18).AlignItems(ui.Center).Children(func() {
-			a.ring(c, fmt.Sprint("quota-", index), []ringValue{{remaining, color}}, 96, 12)
+			fraction := remaining
+			if quotaExpired(q) {
+				fraction = 0
+			}
+			a.ring(c, fmt.Sprint("quota-", index), []ringValue{{fraction, color}}, 96, 12)
 			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(4).Children(func() {
 				ui.Text(c, a.quotaTitle(q)).FontSize(13).FontWeight(600).SingleLine()
 				ui.Row(c).Gap(3).AlignItems(ui.End).Children(func() {
-					ui.Text(c, fmt.Sprintf("%.0f", remaining*100)).FontSize(34).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").LetterSpacing(-.8).ContentTransition(ui.ContentTransition{Numeric: true})
+					ui.Text(c, quotaPercent(q, remaining)).FontSize(34).FontWeight(650).Font(fontDisplay).FontFeatures("tnum").LetterSpacing(-.8).ContentTransition(ui.ContentTransition{Numeric: true})
 					ui.Text(c, a.tr("% 剩余")).FontSize(12).TextColor(p.secondary).Padding(0, 0, 6, 0)
 				})
 				a.caption(c, a.resetText(q))
@@ -146,4 +154,17 @@ func (a *App) quotaTitle(q Object) string {
 		return a.quotaWindow(q) + " · Sonnet"
 	}
 	return a.quotaWindow(q)
+}
+
+// claudeQuotaAge flags a Claude Code snapshot older than the widget's
+// freshness window: Claude Code refreshes it only when it fetches usage.
+func (a *App) claudeQuotaAge(at any) string {
+	age := time.Since(parseTime(at))
+	if parseTime(at).IsZero() || age < 30*time.Minute {
+		return ""
+	}
+	if age < 2*time.Hour {
+		return " · " + a.tr("{0} 分钟前，运行 /usage 刷新", int(age.Minutes()))
+	}
+	return " · " + a.tr("{0} 小时前，运行 /usage 刷新", int(age.Hours()))
 }

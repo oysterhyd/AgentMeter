@@ -18,15 +18,16 @@ VS Code 插件会话读取同一 `CODEX_HOME` 下的 `sessions/` 与 `archived_s
 
 ## 开启首字时间（TTFT）
 
-首字时间是单次模型请求发出至首次模型内容输出的等待时间，包含首次推理 / 文本 / 工具流内容，不是整个任务耗时。Codex 使用其完成事件中明确的 `ttft_ms`；Pi 扩展使用 provider 请求前与首次非空内容增量的单调时钟，兼容复用 WebSocket 的请求。平均 / P95 使用已关联用量的 TTFT 样本；失败后仍有明确首字时间的诊断行也会显示该值。没有数据时不会用相邻日志时间差补算，也无法补回未采集的历史 TTFT。
+首字时间是单次模型请求发出至首次模型内容输出的等待时间，包含首次推理 / 文本 / 工具流内容，不是整个任务耗时。Codex 与 Claude Code 使用其完成事件中明确的 `ttft_ms`；Pi 扩展使用 provider 请求前与首次非空内容增量的单调时钟，兼容复用 WebSocket 的请求。平均 / P95 使用已关联用量的 TTFT 样本；失败后仍有明确首字时间的诊断行也会显示该值。没有数据时不会用相邻日志时间差补算，也无法补回未采集的历史 TTFT。
 
 新安装默认开启本机首字采集；升级保留已有开关。打开 Monitor 或在“设置与价格 → 通用 → 本机首字采集”开启开关后，程序自动完成客户端接入，无需复制配置、编辑文件或手动加载扩展。
 
 - **Codex Desktop / CLI / VS Code 插件**：在 Monitor 当前使用的 `CODEX_HOME/config.toml`（默认 `%USERPROFILE%\.codex\config.toml`）自动合并本机 OTel 导出器，并关闭提示词导出。模型、登录、其他设置和遥测字段保留；第一次修改前在同目录保留 `config.toml.codex-monitor.bak`。客户端共用该目录时同时生效，使用其他目录时按 Monitor 的 `--home` / `MONITOR_CODEX_HOME` / `CODEX_HOME` 配置接入。
+- **Claude Code**：在 `CLAUDE_CONFIG_DIR/settings.json`（默认 `%USERPROFILE%\.claude\settings.json`）的 `env` 中只写入 `CLAUDE_CODE_ENABLE_TELEMETRY=1`、`OTEL_LOGS_EXPORTER=otlp`、`OTEL_EXPORTER_OTLP_LOGS_PROTOCOL=http/json` 和指向本机接收器的 `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`；其他设置的顺序、缩进和值保持不变，第一次修改前保留 `settings.json.codex-monitor.bak`。不设置指标导出器，提示词与回复保持 Claude Code 默认的脱敏。`api_request` 事件按 `request_id` 与会话记录中同一请求的 `requestId` 精确关联；不流式返回的辅助请求（如标题生成）没有 TTFT，不记录。`api_error` 记为失败事件。设置中关闭 Claude Code 采集时同时撤回这些字段。
 - **Pi**：将内置扩展自动安装到 `PI_CODING_AGENT_DIR/extensions/codex-monitor.ts`（默认 `%USERPROFILE%\.pi\agent\extensions\codex-monitor.ts`）。正常启动 `pi` 即自动加载，无需 `-e`。Pi 目录遵循 `MONITOR_PI_HOME` / `PI_CODING_AGENT_DIR`。
-- **已有运行中的客户端**：配置只在客户端初始化时读取，因此首次接入或修改端口后需重启 Codex Desktop / CLI 一次，VS Code 执行“Developer: Reload Window”；Pi 可重启或执行 `/reload`。之后的新调用自动采集，历史缺失时间无法补算。
+- **已有运行中的客户端**：配置只在客户端初始化时读取，因此首次接入或修改端口后需重启 Codex Desktop / CLI 一次，VS Code 执行“Developer: Reload Window”；Pi 可重启或执行 `/reload`；Claude Code 新开的会话自动生效，已在运行的会话需重新启动。之后的新调用自动采集，历史缺失时间无法补算。
 
-接收器默认监听 `127.0.0.1:4319`。启动时端口被占用会自动选择后续 16 个端口内的空闲端口，并同步客户端配置；也可在设置中应用其他端口。手动选择被占用的端口会回滚设置。关闭开关停止接收，并撤回程序管理的 Codex 字段及 Pi 扩展；用户在此期间修改的其他配置仍保留。完全退出 Monitor 时接收器停止，客户端配置保留，便于下次启动继续采集。
+接收器默认监听 `127.0.0.1:4319`。启动时端口被占用会自动选择后续 16 个端口内的空闲端口，并同步客户端配置；也可在设置中应用其他端口。手动选择被占用的端口会回滚设置。关闭开关停止接收，并撤回程序管理的 Codex 字段、Claude Code `env` 条目及 Pi 扩展；用户在此期间修改的其他配置仍保留。完全退出 Monitor 时接收器停止，客户端配置保留，便于下次启动继续采集。
 
 设置显示每个客户端的自动配置结果：“接收就绪，等待新调用”表示接收器已启动；“已收到首字数据”表示确实收到完成事件中的 TTFT。“最近接收”显示事件到达时间。用量及日志中的重试事件可独立采集到，看到这些记录不表示首字已经接通。“重新检查自动配置”可重新检查和同步，无需手动复制。
 

@@ -219,17 +219,21 @@ func (s *Store) processClaude(line []byte, state Object) error {
 		if turn != "" {
 			turnValue = turn
 		}
+		var request any
+		if safeIdentifier(r.RequestID) {
+			request = r.RequestID
+		}
 		account := s.mustOne("SELECT account FROM usage WHERE id=?", id)["account"]
 		if !truth(account) {
 			account = s.accountAt(ts, "claude")
 		}
 		// Streaming writes partial counts first; keep each field's maximum.
-		if e := s.exec(`INSERT INTO usage(id,session,turn,ts,model,input,cached,output,reasoning,cache_write,cache_write_1h,kind,account,agent) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		if e := s.exec(`INSERT INTO usage(id,session,turn,ts,model,input,cached,output,reasoning,cache_write,cache_write_1h,kind,account,agent,request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET input=max(usage.input,excluded.input),cached=max(usage.cached,excluded.cached),output=max(usage.output,excluded.output),
             reasoning=max(usage.reasoning,excluded.reasoning),cache_write=max(usage.cache_write,excluded.cache_write),cache_write_1h=max(usage.cache_write_1h,excluded.cache_write_1h),
-            turn=COALESCE(usage.turn,excluded.turn),model=CASE WHEN usage.model IN ('','unknown') THEN excluded.model ELSE usage.model END
+            turn=COALESCE(usage.turn,excluded.turn),request_id=COALESCE(usage.request_id,excluded.request_id),model=CASE WHEN usage.model IN ('','unknown') THEN excluded.model ELSE usage.model END
             WHERE usage.agent='claude'`,
-			id, session, turnValue, ts, model, input, u.CacheRead, *u.Output, min(u.Details.Thinking, *u.Output), u.CacheCreation, min(u.Creation.OneHour, u.CacheCreation), "逐次记录", account, AgentClaude); e != nil {
+			id, session, turnValue, ts, model, input, u.CacheRead, *u.Output, min(u.Details.Thinking, *u.Output), u.CacheCreation, min(u.Creation.OneHour, u.CacheCreation), "逐次记录", account, AgentClaude, request); e != nil {
 			return e
 		}
 		if turn != "" {
