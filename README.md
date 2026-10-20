@@ -103,9 +103,9 @@ Token、输出、USD 与额度历史采用平滑趋势曲线，保留真实峰�
 
 ## 快速开始
 
-[下载 Windows x64 安装包](https://github.com/oysterhyd/AgentMeter/releases/download/v3.0.2/AgentMeter-Setup-3.0.2.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/AgentMeter/releases/tag/v3.0.2)
+[下载 Windows x64 安装包](https://github.com/oysterhyd/AgentMeter/releases/download/v3.0.3/AgentMeter-Setup-3.0.3.exe) · [版本说明与 SHA-256 校验](https://github.com/oysterhyd/AgentMeter/releases/tag/v3.0.3)
 
-运行 `AgentMeter-Setup-3.0.2.exe`，按向导选择安装目录。新安装默认位于 `%LOCALAPPDATA%\Programs\AgentMeter`；从 Codex Monitor 升级时沿用原安装目录、数据与设置，并把快捷方式与卸载程序换成新名称。无需管理员权限。为保证内置签名更新可以原地替换，可执行文件仍名为 `Codex Monitor Native.exe`。
+运行 `AgentMeter-Setup-3.0.3.exe`，按向导选择安装目录。新安装默认位于 `%LOCALAPPDATA%\Programs\AgentMeter`；从 Codex Monitor 升级时沿用原安装目录、数据与设置，并把快捷方式与卸载程序换成新名称。无需管理员权限。为保证内置签名更新可以原地替换，可执行文件仍名为 `Codex Monitor Native.exe`。
 
 安装包内的原生主程序同时包含主窗口和桌面小窗口，使用时无需安装 Go 或 Node.js。实时数据需要本机已有 Codex 或 Claude Code 的使用记录；额度需要相应客户端的登录状态。升级时会移除旧版小窗口已知的 Electron 运行文件，保留用户额外添加的文件。更新前请从托盘完全退出应用；安装和卸载均保留 `%APPDATA%\codex-monitor` 中的统计与设置。
 

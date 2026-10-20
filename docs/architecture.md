@@ -68,7 +68,7 @@ MyGO 页面直接调用 Go 服务获取按页面裁剪的独立 Go 快照；结�
 
 本机请求采集由同一 `monitor.Service` 管理。开关开启且非离线时监听 `127.0.0.1:<端口>/v1/logs`，只接受有限大小的 OTLP HTTP JSON（支持 gzip）；HTTP 工作线程将白名单事件放入现有串行队列。关闭、端口切换和退出释放监听器，端口失败会回滚设置。`Scan` 额外只读检查 Codex `logs_*.sqlite`，在 Monitor 内保存诊断游标并检测数据库重建，不写诊断源。
 
-主窗口通过 history 快照读取 `calls` 和 `callDetails`：调用列表每页 50 条，展开任务每页 25 条，记录状态与排序由服务处理。仅请求逐次视图时返回全局调用列表，任务明细按需读取；列表使用稳定记录键、虚拟滚动和键盘展开。内置 Pi 扩展嵌入可执行文件，开启采集时自动安装到 Pi 的 extensions 目录，并合并当前 Codex home 的 OTel 配置。`telemetry_setup.go` 以 TOML AST 范围保留其他配置字节，修改前备份；Monitor 仅记住管理的两个非敏感字段和扩展哈希。`telemetry_claude.go` 按原顺序改写 Claude Code `settings.json` 的 `env`，只管理四个 OTel 日志导出键并记住其原值，保留缩进、换行、BOM 和其他设置，修改前后校验其他值不变；`statusLine` 以原始成员保存原值（含键序），跟随 Claude Code 采集开关而非首字开关，用户换成其他状态栏时重新包装，绑定丢失时从桥接命令解出原命令；没有 Git Bash（Claude Code 改用 PowerShell）或从临时 `go run` 构建运行时保持不变。关闭时恢复仍属于程序的字段及移除未被修改的扩展；离线模式不写客户端文件，配置冲突分别显示。新安装默认开启，升级保留开关，启动端口冲突自动寻找空闲端口并同步客户端。采集步骤与限制见 [逐次用量与首字分析](request-analysis.md)。
+主窗口通过 history 快照读取 `calls` 和 `callDetails`：调用列表每页 50 条，展开任务每页 25 条，记录状态与排序由服务处理。仅请求逐次视图时返回全局调用列表，任务明细按需读取；列表使用稳定记录键、虚拟滚动和键盘展开。内置 Pi 扩展嵌入可执行文件，开启采集时自动安装到 Pi 的 extensions 目录，并合并当前 Codex home 的 OTel 配置。`telemetry_setup.go` 以 TOML AST 范围保留其他配置字节，修改前备份；Monitor 仅记住管理的两个非敏感字段和扩展哈希。`telemetry_claude.go` 按原顺序改写 Claude Code `settings.json` 的 `env`，只管理四个 OTel 日志导出键并记住其原值，保留缩进、换行、BOM 和其他设置，修改前后校验其他值不变；`statusLine` 以原始成员保存原值（含键序），跟随 Claude Code 采集开关而非首字开关，用户换成其他状态栏时重新包装，绑定丢失或桥接内命令与选项被改动时从当前桥接解出原命令并改记为原值；没有 Git Bash（Claude Code 改用 PowerShell）或从临时 `go run` 构建运行时保持不变。关闭时恢复仍属于程序的字段及移除未被修改的扩展；离线模式不写客户端文件，配置冲突分别显示。新安装默认开启，升级保留开关，启动端口冲突自动寻找空闲端口并同步客户端。采集步骤与限制见 [逐次用量与首字分析](request-analysis.md)。
 
 ## 小窗口与动画
 

@@ -1,7 +1,7 @@
 {
   "name": "Codex Monitor Native",
   "identifier": "local.codex.monitor.native",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "out": "build/native",
   "updates": {
     "github": "oysterhyd/AgentMeter",

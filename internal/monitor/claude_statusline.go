@@ -190,6 +190,19 @@ func bridgedStatusline(command string) (original string, ok bool) {
 	return "", true
 }
 
+// sameStatusline reports whether two stored statusLine values match once the
+// type the bridge always sets is applied to both.
+func sameStatusline(a, b any) bool {
+	normal := func(v any) string {
+		s, ok := v.(string)
+		if !ok {
+			return ""
+		}
+		return compactJSON(setJSONMember(json.RawMessage(s), "type", "command"))
+	}
+	return normal(a) == normal(b)
+}
+
 // setJSONMember sets one member of a raw object in place, keeping the order
 // of the others; a new member goes last.
 func setJSONMember(raw json.RawMessage, key string, value any) json.RawMessage {
@@ -320,17 +333,19 @@ func (s *Service) setupClaudeStatusline(enabled bool) Object {
 			return fail("Claude Code 状态栏不是命令类型，已保留原配置")
 		}
 		original, ours := bridgedStatusline(command)
-		if binding["path"] != path || (!ours && command != binding["expected"]) {
-			// First takeover, a lost binding, or a statusLine the user replaced.
-			var previous any
-			if exists {
-				previous = string(current)
-				if ours && original == "" {
-					previous = nil
-				} else if ours {
-					previous = string(setJSONMember(current, "command", original))
-				}
+		// previous is the current statusLine with any bridge unwrapped.
+		var previous any
+		if exists {
+			previous = string(current)
+			if ours && original == "" {
+				previous = nil
+			} else if ours {
+				previous = string(setJSONMember(current, "command", original))
 			}
+		}
+		if binding["path"] != path || command != binding["expected"] || !sameStatusline(previous, binding["previous"]) {
+			// First takeover, a lost binding, or a statusLine the user replaced
+			// or edited, including the command inside the bridge.
 			binding = Object{"path": path, "previous": previous}
 			// Save ownership before modifying the file, so a crash remains recoverable.
 			if err = s.store.set("claudeStatuslineBinding", binding); err != nil {

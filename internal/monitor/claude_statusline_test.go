@@ -257,6 +257,33 @@ func TestClaudeStatuslineSetupKeepsManualEditsAndUnsupportedShells(t *testing.T)
 	}
 }
 
+func TestClaudeStatuslineSetupAdoptsEditedBridge(t *testing.T) {
+	s, path := bridgeService(t)
+	_ = os.WriteFile(path, []byte(`{"statusLine":{"type":"command","command":"ccstatusline","padding":0}}`), 0600)
+	if state := s.setupClaudeStatusline(true); state["state"] != "ready" || !truth(state["changed"]) {
+		t.Fatal(state)
+	}
+	// Another installer swaps the wrapped command and adds an option, keeping the bridge.
+	bridge, _ := claudeStatuslineCommand(s.config.Executable, s.config.Data, "bash ~/.claude/coralline/statusline.sh")
+	edited := jsonText(Object{"statusLine": Object{"type": "command", "command": bridge, "padding": 0, "refreshInterval": 1}})
+	_ = os.WriteFile(path, []byte(edited), 0600)
+	for i := range 2 {
+		if state := s.setupClaudeStatusline(true); state["state"] != "ready" || truth(state["changed"]) {
+			t.Fatal(i, "edited bridge rewritten", state)
+		}
+		if after, _ := os.ReadFile(path); string(after) != edited {
+			t.Fatal(i, string(after))
+		}
+	}
+	if state := s.setupClaudeStatusline(false); state["state"] != "disabled" || !truth(state["changed"]) {
+		t.Fatal(state)
+	}
+	line := statusLineOf(t, path)
+	if line["command"] != "bash ~/.claude/coralline/statusline.sh" || line["refreshInterval"] != float64(1) || line["padding"] != float64(0) {
+		t.Fatal("restore lost the edit", line)
+	}
+}
+
 func TestRunClaudeStatuslinePassesInputThrough(t *testing.T) {
 	if findGitBash() == "" {
 		t.Skip("Git Bash not installed")
