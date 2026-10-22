@@ -252,6 +252,7 @@ type claudeConfigCache struct {
 	mtime   time.Time
 	account Object
 	plan    string
+	org     string
 	quota   *claudeQuota
 }
 
@@ -273,6 +274,7 @@ type claudeQuota struct {
 type claudeConfigFile struct {
 	OAuthAccount *struct {
 		AccountUUID      string `json:"accountUuid"`
+		OrganizationUUID string `json:"organizationUuid"`
 		Email            string `json:"emailAddress"`
 		DisplayName      string `json:"displayName"`
 		OrganizationType string `json:"organizationType"`
@@ -319,6 +321,7 @@ func (s *Store) readClaudeConfig(path string) *claudeConfigCache {
 		label = "Claude " + id[:8]
 	}
 	c.account = Object{"id": id, "label": label}
+	c.org = a.OrganizationUUID
 	if plan := strings.TrimPrefix(a.OrganizationType, "claude_"); plan != "" && plan != a.OrganizationType {
 		c.plan = strings.ToUpper(plan[:1]) + plan[1:]
 	}
@@ -329,9 +332,10 @@ func (s *Store) readClaudeConfig(path string) *claudeConfigCache {
 }
 
 // observeClaude records the signed-in Claude account and samples the quota
-// utilization Claude Code last fetched, plus the newer per-response windows
-// the statusLine bridge saved. It reads; it never writes Claude Code files.
-func (s *Store) observeClaude(path, statusline, now string) error {
+// utilization Claude Code last fetched, the newer per-response windows the
+// statusLine bridge saved and the samples Claude Desktop keeps. It reads; it
+// never writes Claude Code or Claude Desktop files.
+func (s *Store) observeClaude(path, statusline, desktop, now string) error {
 	c := s.readClaudeConfig(path)
 	if e := s.recordAccount(c.account, now, "claude"); e != nil {
 		return e
@@ -346,6 +350,10 @@ func (s *Store) observeClaude(path, statusline, now string) error {
 	}
 	ts, err := s.observeClaudeStatusline(statusline, account, c.plan)
 	if err != nil {
+		return err
+	}
+	latest = max(latest, ts)
+	if ts, err = s.observeClaudeDesktop(desktop, account, c.org, c.plan); err != nil {
 		return err
 	}
 	latest = max(latest, ts)

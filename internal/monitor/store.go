@@ -136,6 +136,7 @@ type Store struct {
 	catalogSources Sources
 	claudeConfig   claudeConfigCache
 	claudeStatusline claudeStatuslineCache
+	claudeDesktop    claudeDesktopCache
 	scanBoundary   *string
 	snapshotCache  snapshotCache
 }

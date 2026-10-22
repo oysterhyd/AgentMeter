@@ -29,7 +29,7 @@ func newClaudeFixture(t *testing.T) *claudeFixture {
 func (f *claudeFixture) account(uuid, email string, five, week float64) {
 	f.t.Helper()
 	cfg := Object{"numStartups": 3, "projects": Object{"D:/x": Object{"history": []any{"ignored"}}},
-		"oauthAccount": Object{"accountUuid": uuid, "emailAddress": email, "organizationType": "claude_max"},
+		"oauthAccount": Object{"accountUuid": uuid, "organizationUuid": "org-" + uuid, "emailAddress": email, "organizationType": "claude_max"},
 		"cachedUsageUtilization": Object{"fetchedAtMs": float64(f.at.UnixMilli()), "accountUuid": uuid, "utilization": Object{
 			"five_hour":      Object{"utilization": five, "resets_at": f.at.Add(3 * time.Hour).Format(time.RFC3339Nano)},
 			"seven_day":      Object{"utilization": week, "resets_at": f.at.Add(72 * time.Hour).Format(time.RFC3339Nano)},

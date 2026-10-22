@@ -181,6 +181,7 @@ func Run(resources fs.FS) error {
 		piHome, piSessions = "", ""
 	}
 	claudeHome, claudeConfig := claudePaths()
+	claudeDesktop := claudeDesktopPatterns()
 	if o.Offline || (os.Getenv("MONITOR_TEST_DATA") != "" && os.Getenv("MONITOR_CLAUDE_HOME") == "") {
 		claudeHome, claudeConfig = "", ""
 	}
@@ -189,7 +190,7 @@ func Run(resources fs.FS) error {
 		return err
 	}
 	executable, _ := os.Executable()
-	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, ClaudeHome: claudeHome, ClaudeConfig: claudeConfig, Executable: executable, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
+	client, err := startNativeClient(monitor.Config{Data: o.Data, Home: o.Home, PiHome: piHome, PiSessions: piSessions, ClaudeHome: claudeHome, ClaudeConfig: claudeConfig, ClaudeDesktop: claudeDesktop, Executable: executable, PiExtension: piExtension, Offline: o.Offline, Version: appVersion})
 	if err != nil {
 		if o.Snapshot == "" && !o.Stdio {
 			mygo.App.WhenReady(func() {
@@ -315,6 +316,27 @@ func claudePaths() (home, config string) {
 		return "", ""
 	}
 	return filepath.Join(user, ".claude"), filepath.Join(user, ".claude.json")
+}
+
+// claudeDesktopPatterns locates Claude Desktop's usage history: the Store
+// build keeps it in %LOCALAPPDATA%\Claude-Data\claude_<publisher>, the
+// standalone installer in %APPDATA%\Claude. MONITOR_CLAUDE_DESKTOP isolates
+// tests; a test profile without it reads none.
+func claudeDesktopPatterns() []string {
+	if dir := os.Getenv("MONITOR_CLAUDE_DESKTOP"); dir != "" {
+		return []string{filepath.Join(dir, monitor.ClaudeDesktopUsageFile)}
+	}
+	if os.Getenv("MONITOR_TEST_DATA") != "" {
+		return nil
+	}
+	patterns := []string{}
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		patterns = append(patterns, filepath.Join(local, "Claude-Data", "claude_*", monitor.ClaudeDesktopUsageFile))
+	}
+	if roaming := os.Getenv("APPDATA"); roaming != "" {
+		patterns = append(patterns, filepath.Join(roaming, "Claude", monitor.ClaudeDesktopUsageFile))
+	}
+	return patterns
 }
 
 func startupErrorDialog(err error) mygo.MessageOptions {

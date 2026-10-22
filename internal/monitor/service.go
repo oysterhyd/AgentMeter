@@ -17,6 +17,9 @@ type Config struct {
 	// ClaudeHome is Claude Code's config directory (with projects/);
 	// ClaudeConfig is its .claude.json. Empty disables Claude Code.
 	ClaudeHome, ClaudeConfig string
+	// ClaudeDesktop lists glob patterns for Claude Desktop's usage history; the
+	// newest match is read on each scan while Claude Code is enabled.
+	ClaudeDesktop []string
 	// Executable is the installed Monitor binary that Claude Code's statusLine
 	// bridge invokes; empty leaves statusLine alone.
 	Executable  string
@@ -273,6 +276,9 @@ func (s *Service) sources() Sources {
 	src := Sources{Home: c.Home, PiHome: c.PiHome, PiSessions: c.PiSessions, ClaudeHome: c.ClaudeHome, ClaudeConfig: c.ClaudeConfig}
 	if c.ClaudeHome != "" && c.Data != "" {
 		src.ClaudeStatusline = filepath.Join(c.Data, claudeStatuslineFile)
+	}
+	if c.ClaudeHome != "" {
+		src.ClaudeDesktopUsage = NewestClaudeDesktopUsage(c.ClaudeDesktop)
 	}
 	return src
 }
