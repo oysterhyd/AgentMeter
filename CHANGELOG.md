@@ -1,5 +1,9 @@
 # 更新记录
 
+## 3.0.4
+
+- 修复只用 Claude Desktop 时 Claude 5 小时 / 7 天额度不更新：Desktop 以无界面的 stream-json 模式运行内置 Claude Code，既不执行状态栏命令，也不刷新 `.claude.json` 中的缓存快照。现在额度还会只读 Desktop 自己定时记录的 `plan-usage-history.json`，仅记录与当前登录组织一致的样本；Desktop 不记录重置时间，沿用其他来源在同一窗口内报告的重置时间，找不到则不显示。不读取凭据或令牌，不发起网络请求，也不修改 Desktop 文件。
+
 ## 3.0.3
 
 - 修复改过桥接内命令的状态栏被还原：其他工具（如 coralline 安装器）保留 AgentMeter 桥接、只替换其中包装的状态栏命令或增加 `refreshInterval` 等选项时，AgentMeter 会按旧记录改回原状态栏（例如 ccstatusline）并丢弃新选项。现在每次检查都会解出当前桥接包装的命令，与记录不一致时改为记住当前状态栏，关闭采集时恢复为它，不再覆盖。
