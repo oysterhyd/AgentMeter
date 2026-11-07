@@ -11,6 +11,7 @@
     <a href="https://mygo.egoist.dev/docs"><img src="https://img.shields.io/badge/UI-MyGO_native-008f80" alt="MyGO native UI" /></a>
     <img src="https://img.shields.io/badge/Data-Go_%2B_SQLite-007d9c?logo=go&logoColor=white" alt="Go and SQLite" />
     <img src="https://img.shields.io/badge/语言-简体中文_%2F_English-526783" alt="简体中文与 English" />
+    <a href="https://awesomemygo.dev/apps/agentmeter"><img src="https://awesomemygo.dev/badge.svg" alt="Listed on Awesome MyGo" /></a>
   </p>
   <p>
     <a href="https://github.com/oysterhyd/AgentMeter/releases/latest">下载</a> ·
